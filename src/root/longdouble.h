@@ -133,7 +133,7 @@ inline longdouble ldouble(unsigned long long mantissa, int exp, int sign = 0)
     d.sign = sign;
     return d;
 }
-template<typename T> inline longdouble ldouble(T x) { longdouble d; d.set(x); return d; }
+template<typename T> __declspec(noinline) longdouble ldouble(T x) { longdouble d; d.set(x); return d; }
 //template<typename T> inline longdouble ldouble(volatile T x) { longdouble d; d.set(x); return d; }
 
 longdouble operator+(longdouble ld1, longdouble ld2);
