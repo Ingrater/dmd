@@ -71,6 +71,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <ForcedIncludeFiles>vcbuild\warnings.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
       <AdditionalOptions>/LARGEADDRESSAWARE %(AdditionalOptions)</AdditionalOptions>
@@ -79,6 +80,9 @@
       <OptimizeReferences>false</OptimizeReferences>
       <EnableCOMDATFolding>false</EnableCOMDATFolding>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y $(OutDir)$(ProjectName).exe C:\digital-mars\dmd2\windows\bin</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -105,6 +109,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y $(OutDir)$(ProjectName).exe C:\digital-mars\dmd2\windows\bin</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="access.c" />

@@ -19,6 +19,10 @@
 #include        <process.h>
 #endif
 
+#ifdef _MSC_VER
+#include <Windows.h>
+#endif
+
 #if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
 #include        <sys/types.h>
 #include        <sys/wait.h>
@@ -245,14 +249,14 @@ int runLINK()
          */
         const char *vcinstalldir = getenv("VCINSTALLDIR");
         if (vcinstalldir)
-        {   cmdbuf.writestring(" \"/LIBPATH:");
+        {   cmdbuf.writestring(" /LIBPATH:\"");
             cmdbuf.writestring(vcinstalldir);
             cmdbuf.writestring("lib\\amd64\"");
         }
 
         const char *windowssdkdir = getenv("WindowsSdkDir");
         if (windowssdkdir)
-        {   cmdbuf.writestring(" \"/LIBPATH:");
+        {   cmdbuf.writestring(" /LIBPATH:\"");
             cmdbuf.writestring(windowssdkdir);
             cmdbuf.writestring("lib\\x64\"");
         }
@@ -728,6 +732,18 @@ int executecmd(char *cmd, char *args, int useenv)
     // Normalize executable path separators, see Bugzilla 9330
     for (char *p=cmd; *p; ++p)
         if (*p == '/') *p = '\\';
+#endif
+
+#ifdef _MSC_VER
+    if(strchr(cmd, ' '))
+    {
+        // MSVCRT: spawn does not work with spaces in the executable
+        size_t cmdlen = strlen(cmd);
+        char* shortName = new char[cmdlen + 1]; // enough space
+        DWORD len = GetShortPathName(cmd, shortName, cmdlen + 1);
+        if(len > 0 && len <= cmdlen)
+            cmd = shortName;
+    }
 #endif
 
     status = executearg0(cmd,args);
