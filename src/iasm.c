@@ -36,6 +36,7 @@
 #include        "init.h"
 #include        "enum.h"
 #include        "module.h"
+#include        "target.h"
 
 // C/C++ compiler
 #define SCOPE_H 1               // avoid conflicts with D's Scope
@@ -103,7 +104,7 @@ const char *asmerrmsgs[] =
     "align %d must be a power of 2",
     "opcode expected, not %s",
     "prefix",
-    "end of instruction",
+    "end of instruction expected, not '%s'",
     "bad operand",
     "bad integral operand",
     "identifier expected",
@@ -2166,7 +2167,7 @@ STATIC opflag_t asm_float_type_size(Type *ptype, opflag_t *pusFloat)
     if (ptype && ptype->isscalar())
     {
         int sz = (int)ptype->size();
-        if (sz == REALSIZE)
+        if (sz == Target::realsize)
         {   *pusFloat = _f80;
             return 0;
         }
@@ -4843,7 +4844,18 @@ AFTER_EMIT:
     o1 = o2 = o3 = NULL;
 
     if (tok_value != TOKeof)
-        asmerr(EM_eol);                 // end of line expected
+    {
+        try
+        {
+            asmerr(EM_eol, asmtok->toChars());  // end of line expected
+        }
+        catch (ASM_STATE *a)
+        {
+            asmtok = NULL;
+            tok_value = TOKeof;
+            exit(EXIT_FAILURE);
+        }
+    }
     //return asmstate.bReturnax;
     return this;
 }
