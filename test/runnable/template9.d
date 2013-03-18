@@ -1563,6 +1563,72 @@ void test8238()
 }
 
 /**********************************/
+// 8669
+
+struct X8669
+{
+    void mfoo(this T)()
+    {
+        static assert(is(typeof(this) == T));
+    }
+    void cfoo(this T)() const
+    {
+        static assert(is(typeof(this) == const(T)));
+    }
+    void sfoo(this T)() shared
+    {
+        static assert(is(typeof(this) == shared(T)));
+    }
+    void scfoo(this T)() shared const
+    {
+        static assert(is(typeof(this) == shared(const(T))));
+    }
+    void ifoo(this T)() immutable
+    {
+        static assert(is(typeof(this) == immutable(T)));
+    }
+}
+
+void test8669()
+{
+                 X8669 mx;
+           const X8669 cx;
+      immutable  X8669 ix;
+          shared X8669 sx;
+    shared const X8669 scx;
+
+     mx.mfoo();
+     cx.mfoo();
+     ix.mfoo();
+     sx.mfoo();
+    scx.mfoo();
+
+     mx.cfoo();
+     cx.cfoo();
+     ix.cfoo();
+     sx.cfoo();
+    scx.cfoo();
+
+    static assert(!is(typeof(  mx.sfoo() )));
+    static assert(!is(typeof(  cx.sfoo() )));
+     ix.sfoo();
+     sx.sfoo();
+    scx.sfoo();
+
+    static assert(!is(typeof(  mx.scfoo() )));
+    static assert(!is(typeof(  cx.scfoo() )));
+     ix.scfoo();
+     sx.scfoo();
+    scx.scfoo();
+
+    static assert(!is(typeof(  mx.ifoo() )));
+    static assert(!is(typeof(  cx.ifoo() )));
+     ix.ifoo();
+    static assert(!is(typeof(  sx.ifoo() )));
+    static assert(!is(typeof( scx.ifoo() )));
+}
+
+/**********************************/
 // 8976
 
 void f8976(ref int) { }
@@ -1955,6 +2021,60 @@ void test9361()
 }
 
 /**********************************/
+// 9536
+
+struct S9536
+{
+    static A foo(A)(A a)
+    {
+        return a * 2;
+    }
+    int bar() const
+    {
+        return foo(42);
+    }
+}
+
+void test9536()
+{
+    S9536 s;
+    assert(s.bar() == 84);
+}
+
+/**********************************/
+// 9654
+
+auto foo9654a(ref           char[8] str) { return str; }
+auto foo9654b(ref     const char[8] str) { return str; }
+auto foo9654c(ref immutable char[8] str) { return str; }
+static assert(!is(typeof(foo9654a("testinfo"))));
+static assert( is(typeof(foo9654b("testinfo")) ==     const char[8]));
+static assert( is(typeof(foo9654c("testinfo")) == immutable char[8]));
+
+auto bar9654a(T)(ref           T[8] str) { return str; static assert(is(T == immutable char)); }
+auto bar9654b(T)(ref     const T[8] str) { return str; static assert(is(T ==           char)); }
+auto bar9654c(T)(ref immutable T[8] str) { return str; static assert(is(T ==           char)); }
+static assert( is(typeof(bar9654a("testinfo")) == immutable char[8]));
+static assert( is(typeof(bar9654b("testinfo")) ==     const char[8]));
+static assert( is(typeof(bar9654c("testinfo")) == immutable char[8]));
+
+auto baz9654a(T, size_t dim)(ref           T[dim] str) { return str; static assert(is(T == immutable char)); }
+auto baz9654b(T, size_t dim)(ref     const T[dim] str) { return str; static assert(is(T ==           char)); }
+auto baz9654c(T, size_t dim)(ref immutable T[dim] str) { return str; static assert(is(T ==           char)); }
+static assert( is(typeof(baz9654a("testinfo")) == immutable char[8]));
+static assert( is(typeof(baz9654b("testinfo")) ==     const char[8]));
+static assert( is(typeof(baz9654c("testinfo")) == immutable char[8]));
+
+/******************************************/
+// 9712
+
+auto func9712(T)(T[2] arg) { return arg; }
+static assert(is(typeof(func9712([1,2])) == int[2]));
+
+auto deduceLength9712(T,size_t n)(T[n] a) { return a; }
+static assert(is(typeof(deduceLength9712([1,2,3])) == int[3]));
+
+/******************************************/
 
 int main()
 {
@@ -2018,6 +2138,7 @@ int main()
     test14();
     test8129();
     test8238();
+    test8669();
     test8976();
     test8940();
     test9026();
@@ -2028,6 +2149,7 @@ int main()
     test9124b();
     test9143();
     test9266();
+    test9536();
 
     printf("Success\n");
     return 0;

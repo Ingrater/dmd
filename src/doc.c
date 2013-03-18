@@ -106,9 +106,10 @@ Parameter *isFunctionParameter(Dsymbol *s, unsigned char *p, size_t len);
 
 int isIdStart(unsigned char *p);
 int isIdTail(unsigned char *p);
+int isIndentWS(unsigned char *p);
 int utfStride(unsigned char *p);
 
-static unsigned char ddoc_default[] = "\
+static const char ddoc_default[] = "\
 DDOC =  <html><head>\n\
         <META http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n\
         <title>$(TITLE)</title>\n\
@@ -140,6 +141,7 @@ LINK2 = <a href=\"$1\">$+</a>\n\
 LPAREN= (\n\
 RPAREN= )\n\
 DOLLAR= $\n\
+DEPRECATED= $0\n\
 \n\
 RED =   <font color=red>$0</font>\n\
 BLUE =  <font color=blue>$0</font>\n\
@@ -199,11 +201,11 @@ ESCAPES = /</&lt;/\n\
           /&/&amp;/\n\
 ";
 
-static char ddoc_decl_s[] = "$(DDOC_DECL ";
-static char ddoc_decl_e[] = ")\n";
+static const char ddoc_decl_s[] = "$(DDOC_DECL ";
+static const char ddoc_decl_e[] = ")\n";
 
-static char ddoc_decl_dd_s[] = "$(DDOC_DECL_DD ";
-static char ddoc_decl_dd_e[] = ")\n";
+static const char ddoc_decl_dd_s[] = "$(DDOC_DECL_DD ";
+static const char ddoc_decl_dd_e[] = ")\n";
 
 
 /****************************************************
@@ -507,39 +509,92 @@ void Dsymbol::emitDitto(Scope *sc)
     sc->lastoffset += b.offset;
 }
 
+/** Remove leading indentation from 'src' which represents lines of code. */
+static const char *unindent(const char *src)
+{
+    OutBuffer codebuf;
+    codebuf.writestring(src);
+    codebuf.writebyte(0);
+
+    while (src && *src == '\n')
+        ++src;  // skip until we find the first non-empty line
+
+    size_t codeIndent = 0;
+    while (src && ((*src == ' ') || (*src == '\t')))
+    {
+        codeIndent++;
+        src++;
+    }
+
+    bool lineStart = true;
+    unsigned char *endp = codebuf.data + codebuf.offset;
+    for (unsigned char *p = codebuf.data; p < endp; )
+    {
+        if (lineStart)
+        {
+            size_t j = codeIndent;
+            unsigned char *q = p;
+            while (j-- > 0 && q < endp && ((*q == ' ') || (*q == '\t')))
+                ++q;
+            codebuf.remove(p - codebuf.data, q - p);
+            assert(codebuf.data <= p);
+            assert(p < codebuf.data + codebuf.offset);
+            lineStart = false;
+            endp = codebuf.data + codebuf.offset; // update
+            continue;
+        }
+        if (*p == '\n')
+            lineStart = true;
+        ++p;
+    }
+
+    codebuf.writebyte(0);
+    return codebuf.extractData();
+}
+
+/** Return true if entire string is made out of whitespace. */
+static bool isAllWhitespace(const char *src)
+{
+    for (const char *c = src; *c && *c != '\0'; c++)
+    {
+        switch (*c)
+        {
+            case ' ':
+            case '\t':
+            case '\n':
+            case '\r':
+                continue;
+
+            default: return false;
+        }
+    }
+
+    return true;
+}
+
 void emitUnittestComment(Scope *sc, Dsymbol *s, UnitTestDeclaration *test)
 {
     static char pre[] = "$(D_CODE \n";
     OutBuffer *buf = sc->docbuf;
 
-    bool exampleFound = false;
     for (UnitTestDeclaration *utd = test; utd; utd = utd->unittest)
     {
         if (utd->protection == PROTprivate || !utd->comment || !utd->fbody)
             continue;
 
         OutBuffer codebuf;
-        const char *body = utd->fbody->toChars();
-        if (strlen(body))
+        if (utd->codedoc && strlen(utd->codedoc) && !isAllWhitespace(utd->codedoc))
         {
-            if (!exampleFound)
-            {
-                exampleFound = true;
-                buf->writestring("$(DDOC_SECTION ");
-                buf->writestring("$(B Example:)");
-            }
-
+            buf->writestring("$(DDOC_EXAMPLES ");
             codebuf.writestring(pre);
-            codebuf.writestring(body);
+            codebuf.writestring(unindent(utd->codedoc));
             codebuf.writestring(")");
             codebuf.writeByte(0);
             highlightCode2(sc, s, &codebuf, 0);
             buf->writestring(codebuf.toChars());
+            buf->writestring(")");
         }
     }
-
-    if (exampleFound)
-        buf->writestring(")");
 }
 
 void ScopeDsymbol::emitMemberComments(Scope *sc)
@@ -874,6 +929,9 @@ void declarationToDocBuffer(Declaration *decl, OutBuffer *buf, TemplateDeclarati
     //printf("declarationToDocBuffer() %s, originalType = %s, td = %s\n", decl->toChars(), decl->originalType ? decl->originalType->toChars() : "--", td ? td->toChars() : "--");
     if (decl->ident)
     {
+        if (decl->isDeprecated())
+            buf->writestring("$(DEPRECATED ");
+
         prefix(buf, decl);
 
         if (decl->type)
@@ -890,6 +948,10 @@ void declarationToDocBuffer(Declaration *decl, OutBuffer *buf, TemplateDeclarati
         }
         else
             buf->writestring(decl->ident->toChars());
+
+        if (decl->isDeprecated())
+            buf->writestring(")");
+
         buf->writestring(";\n");
     }
 }
@@ -1202,6 +1264,7 @@ void DocComment::parseSections(unsigned char *comment)
     p = comment;
     while (*p)
     {
+        unsigned char *pstart0 = p;
         p = skipwhitespace(p);
         pstart = p;
         pend = p;
@@ -1217,6 +1280,11 @@ void DocComment::parseSections(unsigned char *comment)
             // Check for start/end of a code section
             if (*p == '-')
             {
+                if (!inCode)
+                {   // restore leading indentation
+                    while (pstart0 < pstart && isIndentWS(pstart-1)) --pstart;
+                }
+
                 int numdash = 0;
                 while (*p == '-')
                 {
@@ -1918,6 +1986,7 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
     int inCode = 0;
     //int inComment = 0;                  // in <!-- ... --> comment
     size_t iCodeStart;                    // start of code section
+    size_t codeIndent = 0;
 
     size_t iLineStart = offset;
 
@@ -2090,6 +2159,30 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
 
                         codebuf.write(buf->data + iCodeStart, i - iCodeStart);
                         codebuf.writeByte(0);
+
+                        // Remove leading indentations from all lines
+                        bool lineStart = true;
+                        unsigned char *endp = codebuf.data + codebuf.offset;
+                        for (unsigned char *p = codebuf.data; p < endp; )
+                        {
+                            if (lineStart)
+                            {
+                                size_t j = codeIndent;
+                                unsigned char *q = p;
+                                while (j-- > 0 && q < endp && isIndentWS(q))
+                                    ++q;
+                                codebuf.remove(p - codebuf.data, q - p);
+                                assert(codebuf.data <= p);
+                                assert(p < codebuf.data + codebuf.offset);
+                                lineStart = false;
+                                endp = codebuf.data + codebuf.offset; // update
+                                continue;
+                            }
+                            if (*p == '\n')
+                                lineStart = true;
+                            ++p;
+                        }
+
                         highlightCode2(sc, s, &codebuf, 0);
                         buf->remove(iCodeStart, i - iCodeStart);
                         i = buf->insert(iCodeStart, codebuf.data, codebuf.offset);
@@ -2100,6 +2193,7 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
                     {   static char pre[] = "$(D_CODE \n";
 
                         inCode = 1;
+                        codeIndent = istart - iLineStart;  // save indent count
                         i = buf->insert(i, pre, sizeof(pre) - 1);
                         iCodeStart = i;
                         i--;            // place i on >
@@ -2367,6 +2461,15 @@ int isIdTail(unsigned char *p)
             return 1;
     }
     return 0;
+}
+
+/****************************************
+ * Determine if p points to the indentation space.
+ */
+
+int isIndentWS(unsigned char *p)
+{
+    return (*p == ' ') || (*p == '\t');
 }
 
 /*****************************************

@@ -55,6 +55,7 @@ struct Scope
     Statement *sbreak;          // enclosing statement that supports "break"
     Statement *scontinue;       // enclosing statement that supports "continue"
     ForeachStatement *fes;      // if nested function for ForeachStatement, this is it
+    Scope *callsc;              // used for __FUNCTION__, __PRETTY_FUNCTION__ and __MODULE__
     unsigned offset;            // next offset to use in aggregate
                                 // This really shouldn't be a part of Scope, because it requires
                                 // semantic() to be done in the lexical field order. It should be
@@ -99,9 +100,6 @@ struct Scope
 #define SCOPEensure     0x60    // inside out contract code
 #define SCOPEcontract   0x60    // [mask] we're inside contract code
 
-#ifdef IN_GCC
-    Expressions *attributes;    // GCC decl/type attributes
-#endif
     Expressions *userAttributes;        // user defined attributes
 
     DocComment *lastdc;         // documentation comment for last symbol at this scope
@@ -113,7 +111,6 @@ struct Scope
     static Scope *createGlobal(Module *module);
 
     Scope();
-    Scope(Module *module);
     Scope(Scope *enclosing);
 
     Scope *push();

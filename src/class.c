@@ -727,22 +727,28 @@ void ClassDeclaration::semantic(Scope *sc)
     aggNew    = (NewDeclaration *)search(0, Id::classNew, 0);
     aggDelete = (DeleteDeclaration *)search(0, Id::classDelete, 0);
 
-    // If this class has no constructor, but base class does, create
-    // a constructor:
+    // If this class has no constructor, but base class has a default
+    // ctor, create a constructor:
     //    this() { }
     if (!ctor && baseClass && baseClass->ctor)
     {
-        //printf("Creating default this(){} for class %s\n", toChars());
-        Type *tf = new TypeFunction(NULL, NULL, 0, LINKd, 0);
-        CtorDeclaration *ctor = new CtorDeclaration(loc, 0, 0, tf);
-        ctor->isImplicit = true;
-        ctor->fbody = new CompoundStatement(0, new Statements());
-        members->push(ctor);
-        ctor->addMember(sc, this, 1);
-        *sc = scsave;   // why? What about sc->nofree?
-        ctor->semantic(sc);
-        this->ctor = ctor;
-        defaultCtor = ctor;
+        if (baseClass->defaultCtor)
+        {
+            //printf("Creating default this(){} for class %s\n", toChars());
+            Type *tf = new TypeFunction(NULL, NULL, 0, LINKd, 0);
+            CtorDeclaration *ctor = new CtorDeclaration(loc, 0, 0, tf);
+            ctor->fbody = new CompoundStatement(0, new Statements());
+            members->push(ctor);
+            ctor->addMember(sc, this, 1);
+            *sc = scsave;   // why? What about sc->nofree?
+            ctor->semantic(sc);
+            this->ctor = ctor;
+            defaultCtor = ctor;
+        }
+        else
+        {
+            error("Cannot implicitly generate a default ctor when base class %s is missing a default ctor", baseClass->toPrettyChars());
+        }
     }
 
 #if 0
@@ -1650,8 +1656,7 @@ int BaseClass::fillVtbl(ClassDeclaration *cd, FuncDeclarations *vtbl, int newins
             if (newinstance &&
                 fd->toParent() != cd &&
                 ifd->toParent() == base)
-                cd->error("interface function %s.%s is not implemented",
-                    id->toChars(), ifd->ident->toChars());
+                cd->error("interface function '%s' is not implemented", ifd->toFullSignature());
 
             if (fd->toParent() == cd)
                 result = 1;
@@ -1661,9 +1666,7 @@ int BaseClass::fillVtbl(ClassDeclaration *cd, FuncDeclarations *vtbl, int newins
             //printf("            not found\n");
             // BUG: should mark this class as abstract?
             if (!cd->isAbstract())
-                cd->error("interface function %s.%s%s isn't implemented",
-                    id->toChars(), ifd->ident->toChars(),
-                    Parameter::argsTypesToChars(tf->parameters, tf->varargs));
+                cd->error("interface function '%s' is not implemented", ifd->toFullSignature());
 
             fd = NULL;
         }

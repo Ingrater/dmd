@@ -921,19 +921,64 @@ template isVariable9091(X...) if (X.length == 1)
 }
 class C9091
 {
-    void func()
-    {
-        enum is_x = isVariable9091!(__traits(getMember, C9091, "x"));
-    }
     int x;  // some class members
+    void func(int n){ this.x = n; }
+
+    void test()
+    {
+        alias T = C9091;
+        enum is_x = isVariable9091!(__traits(getMember, T, "x"));
+
+        foreach (i, m; __traits(allMembers, T))
+        {
+            enum x = isVariable9091!(__traits(getMember, T, m));
+            static if (i == 0)  // x
+            {
+                __traits(getMember, T, m) = 10;
+                assert(this.x == 10);
+            }
+            static if (i == 1)  // func
+            {
+                __traits(getMember, T, m)(20);
+                assert(this.x == 20);
+            }
+        }
+    }
 }
 struct S9091
 {
-    void func()
-    {
-        enum is_x = isVariable9091!(__traits(getMember, S9091, "x"));
-    }
     int x;  // some struct members
+    void func(int n){ this.x = n; }
+
+    void test()
+    {
+        alias T = S9091;
+        enum is_x = isVariable9091!(__traits(getMember, T, "x"));
+
+        foreach (i, m; __traits(allMembers, T))
+        {
+            enum x = isVariable9091!(__traits(getMember, T, m));
+            static if (i == 0)  // x
+            {
+                __traits(getMember, T, m) = 10;
+                assert(this.x == 10);
+            }
+            static if (i == 1)  // func
+            {
+                __traits(getMember, T, m)(20);
+                assert(this.x == 20);
+            }
+        }
+    }
+}
+
+void test9091()
+{
+    auto c = new C9091();
+    c.test();
+
+    auto s = S9091();
+    s.test();
 }
 
 /********************************************************/
@@ -1023,6 +1068,55 @@ void test7408()
     static assert(!__traits(compiles, T7408!().offsetof));
 }
 
+/*************************************************************/
+// 9552
+
+class C9552
+{
+    int f() { return 10; }
+    int f(int n) { return n * 2; }
+}
+
+void test9552()
+{
+    auto c = new C9552;
+    auto dg1 = &(__traits(getOverloads, c, "f")[0]); // DMD crashes
+    assert(dg1() == 10);
+    auto dg2 = &(__traits(getOverloads, c, "f")[1]);
+    assert(dg2(10) == 20);
+}
+
+/*************************************************************/
+
+void test9136()
+{
+    int x;
+    struct S1 { void f() { x++; } }
+    struct U1 { void f() { x++; } }
+    static struct S2 { }
+    static struct S3 { S1 s; }
+    static struct U2 { }
+    void f1() { x++; }
+    static void f2() { }
+
+    static assert(__traits(isNested, S1));
+    static assert(__traits(isNested, U1));
+    static assert(!__traits(isNested, S2));
+    static assert(!__traits(isNested, S3));
+    static assert(!__traits(isNested, U2));
+    static assert(!__traits(compiles, __traits(isNested, int) ));
+    static assert(!__traits(compiles, __traits(isNested, f1, f2) ));
+    static assert(__traits(isNested, f1));
+    static assert(!__traits(isNested, f2));
+
+    static class A { static class SC { } class NC { } }
+    static assert(!__traits(isNested, A));
+    static assert(!__traits(isNested, A.SC));
+    static assert(__traits(isNested, A.NC));
+}
+
+/********************************************************/
+
 int main()
 {
     test1();
@@ -1052,8 +1146,11 @@ int main()
     test1369();
     test7608();
     test7858();
+    test9091();
     test5978();
     test7408();
+    test9552();
+    test9136();
 
     writeln("Success");
     return 0;

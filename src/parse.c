@@ -386,7 +386,6 @@ Dsymbols *Parser::parseDeclDefs(int once)
             case TOKnothrow:      stc = STCnothrow;      goto Lstc;
             case TOKpure:         stc = STCpure;         goto Lstc;
             case TOKref:          stc = STCref;          goto Lstc;
-            case TOKtls:          stc = STCtls;          goto Lstc;
             case TOKgshared:      stc = STCgshared;      goto Lstc;
             //case TOKmanifest:   stc = STCmanifest;     goto Lstc;
             case TOKat:
@@ -451,7 +450,6 @@ Dsymbols *Parser::parseDeclDefs(int once)
                     case TOKnothrow:      stc = STCnothrow;      goto Lstc;
                     case TOKpure:         stc = STCpure;         goto Lstc;
                     case TOKref:          stc = STCref;          goto Lstc;
-                    case TOKtls:          stc = STCtls;          goto Lstc;
                     case TOKgshared:      stc = STCgshared;      goto Lstc;
                     //case TOKmanifest:   stc = STCmanifest;     goto Lstc;
                     case TOKat:
@@ -1324,10 +1322,21 @@ UnitTestDeclaration *Parser::parseUnitTest()
     Loc loc = this->loc;
 
     nextToken();
+    unsigned char *begPtr = token.ptr + 1;  // skip '{'
+    unsigned char *endPtr = NULL;
+    body = parseStatement(PScurly, &endPtr);
 
-    body = parseStatement(PScurly);
+    /** Extract unittest body as a string. Must be done eagerly since memory
+    will be released by the lexer before doc gen. */
+    char *docline = NULL;
+    if (global.params.doDocComments && endPtr > begPtr)
+    {
+        docline = (char *)mem.malloc((endPtr - begPtr) + 1);
+        memcpy(docline, begPtr, endPtr - begPtr);
+        docline[endPtr - begPtr] = 0;
+    }
 
-    f = new UnitTestDeclaration(loc, this->loc);
+    f = new UnitTestDeclaration(loc, this->loc, docline);
     f->fbody = body;
     return f;
 }
@@ -1709,6 +1718,18 @@ Dsymbol *Parser::parseAggregate()
             {
                 nextToken();
                 baseclasses = parseBaseClasses();
+
+                if (tpl)
+                {
+                    Expression *tempCons = parseConstraint();
+                    if (tempCons)
+                    {
+                        if (constraint)
+                            error("members expected");
+                        else
+                            constraint = tempCons;
+                    }
+                }
 
                 if (token.value != TOKlcurly)
                     error("members expected");
@@ -2239,6 +2260,9 @@ Objects *Parser::parseTemplateArgument()
         case TOKstring:
         case TOKfile:
         case TOKline:
+        case TOKmodulestring:
+        case TOKfuncstring:
+        case TOKprettyfunc:
         case TOKthis:
         {   // Template argument is an expression
             Expression *ea = parsePrimaryExp();
@@ -2971,7 +2995,6 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
             case TOKnothrow:    stc = STCnothrow;        goto L1;
             case TOKpure:       stc = STCpure;           goto L1;
             case TOKref:        stc = STCref;            goto L1;
-            case TOKtls:        stc = STCtls;            goto L1;
             case TOKgshared:    stc = STCgshared;        goto L1;
             case TOKenum:       stc = STCmanifest;       goto L1;
             case TOKat:
@@ -3121,7 +3144,8 @@ L2:
         else if (t != tfirst)
             error("multiple declarations must have the same type, not %s and %s",
                 tfirst->toChars(), t->toChars());
-        if (!ident)
+        bool isThis = (t->ty == Tident && ((TypeIdentifier *)t)->ident == Id::This);
+        if (!isThis && !ident)
             error("no identifier for declarator %s", t->toChars());
 
         if (tok == TOKtypedef || tok == TOKalias)
@@ -3146,8 +3170,16 @@ L2:
                 deprecation("use of typedef is deprecated; use alias instead");
             }
             else
-            {   if (init)
-                    error("alias cannot have initializer");
+            {
+                if (init)
+                {
+                    if (isThis)
+                        error("Cannot use syntax 'alias this = %s', use 'alias %s this' instead",
+                           init->toChars(), init->toChars());
+                    else
+                        error("alias cannot have initializer");
+                }
+
                 v = new AliasDeclaration(loc, ident, t);
             }
             v->storage_class = storage_class;
@@ -3636,14 +3668,17 @@ Initializer *Parser::parseInitializer()
 
 /*****************************************
  * Parses default argument initializer expression that is an assign expression,
- * with special handling for __FILE__ and __LINE__.
+ * with special handling for __FILE__, __LINE__, __MODULE__, __FUNCTION__, and __PRETTY_FUNCTION__.
  */
 
 #if DMDV2
 Expression *Parser::parseDefaultInitExp()
 {
     if (token.value == TOKfile ||
-        token.value == TOKline)
+        token.value == TOKline ||
+        token.value == TOKmodulestring ||
+        token.value == TOKfuncstring ||
+        token.value == TOKprettyfunc)
     {
         Token *t = peek(&token);
         if (t->value == TOKcomma || t->value == TOKrparen)
@@ -3651,8 +3686,14 @@ Expression *Parser::parseDefaultInitExp()
 
             if (token.value == TOKfile)
                 e = new FileInitExp(loc);
-            else
+            else if (token.value == TOKline)
                 e = new LineInitExp(loc);
+            else if (token.value == TOKmodulestring)
+                e = new ModuleInitExp(loc);
+            else if (token.value == TOKfuncstring)
+                e = new FuncInitExp(loc);
+            else if (token.value == TOKprettyfunc)
+                e = new PrettyFuncInitExp(loc);
             nextToken();
             return e;
         }
@@ -3682,7 +3723,7 @@ void Parser::checkDanglingElse(Loc elseloc)
  *      flags   PSxxxx
  */
 
-Statement *Parser::parseStatement(int flags)
+Statement *Parser::parseStatement(int flags, unsigned char** endPtr)
 {   Statement *s;
     Condition *condition;
     Statement *ifbody;
@@ -3763,6 +3804,9 @@ Statement *Parser::parseStatement(int flags)
         case TOKtraits:
         case TOKfile:
         case TOKline:
+        case TOKmodulestring:
+        case TOKfuncstring:
+        case TOKprettyfunc:
 #endif
         Lexp:
         {
@@ -3828,7 +3872,6 @@ Statement *Parser::parseStatement(int flags)
         case TOKnothrow:
         case TOKpure:
         case TOKref:
-        case TOKtls:
         case TOKgshared:
         case TOKat:
 #endif
@@ -3926,6 +3969,7 @@ Statement *Parser::parseStatement(int flags)
             {
                 statements->push(parseStatement(PSsemi | PScurlyscope));
             }
+            if (endPtr) *endPtr = token.ptr;
             endloc = this->loc;
             s = new CompoundStatement(loc, statements);
             if (flags & (PSscope | PScurlyscope))
@@ -4865,6 +4909,9 @@ int Parser::isBasicType(Token **pt)
                         case TOKstring:
                         case TOKfile:
                         case TOKline:
+                        case TOKmodulestring:
+                        case TOKfuncstring:
+                        case TOKprettyfunc:
                             goto L2;
                         default:
                             goto Lfalse;
@@ -5341,7 +5388,6 @@ int Parser::skipAttributes(Token *t, Token **pt)
             case TOKnothrow:
             case TOKpure:
             case TOKref:
-            case TOKtls:
             case TOKgshared:
             //case TOKmanifest:
                 break;
@@ -5542,6 +5588,23 @@ Expression *Parser::parsePrimaryExp()
             e = new IntegerExp(loc, loc.linnum, Type::tint32);
             nextToken();
             break;
+
+        case TOKmodulestring:
+        {   const char *s = md->toChars();
+            e = new StringExp(loc, (char *)s, strlen(s), 0);
+            nextToken();
+            break;
+        }
+
+        case TOKfuncstring:
+            e = new FuncInitExp(loc);
+            nextToken();
+            break;
+
+        case TOKprettyfunc:
+            e = new PrettyFuncInitExp(loc);
+            nextToken();
+            break;
 #endif
 
         case TOKtrue:
@@ -5718,7 +5781,7 @@ Expression *Parser::parsePrimaryExp()
                         tspec = parseType();
                     }
                 }
-                if (ident && tspec)
+                if (tspec)
                 {
                     if (token.value == TOKcomma)
                         tpl = parseTemplateParameterList(1);
@@ -5726,8 +5789,6 @@ Expression *Parser::parsePrimaryExp()
                     {   tpl = new TemplateParameters();
                         check(TOKrparen);
                     }
-                    TemplateParameter *tp = new TemplateTypeParameter(loc, ident, NULL, NULL);
-                    tpl->insert(0, tp);
                 }
                 else
                     check(TOKrparen);
@@ -6189,13 +6250,25 @@ Expression *Parser::parseUnaryExp()
         case TOKshared:
         case TOKconst:
         case TOKinvariant:
-        case TOKimmutable:      // immutable(type)(arguments)
+        case TOKimmutable:      // immutable(type)(arguments) / immutable(type).init
         {
             StorageClass stc = parseTypeCtor();
             Type *t = parseBasicType();
             t = t->addSTC(stc);
             e = new TypeExp(loc, t);
-            if (token.value != TOKlparen)
+            if (stc == 0 && token.value == TOKdot)
+            {
+                nextToken();
+                if (token.value != TOKidentifier)
+                {   error("Identifier expected following (type).");
+                    return NULL;
+                }
+                e = typeDotIdExp(loc, t, token.ident);
+                nextToken();
+                e = parsePostExp(e);
+                break;
+            }
+            else if (token.value != TOKlparen)
             {
                 error("(arguments) expected following %s", t->toChars());
                 return e;
@@ -6260,6 +6333,9 @@ Expression *Parser::parseUnaryExp()
 #if DMDV2
                     case TOKfile:
                     case TOKline:
+                    case TOKmodulestring:
+                    case TOKfuncstring:
+                    case TOKprettyfunc:
 #endif
                     case BASIC_TYPES:           // (type)int.size
                     {   // (type) una_exp
@@ -6270,15 +6346,14 @@ Expression *Parser::parseUnaryExp()
                         check(TOKrparen);
 
                         // if .identifier
+                        // or .identifier!( ... )
                         if (token.value == TOKdot)
                         {
-                            nextToken();
-                            if (token.value != TOKidentifier)
+                            if (peekNext() != TOKidentifier)
                             {   error("Identifier expected following (type).");
                                 return NULL;
                             }
-                            e = typeDotIdExp(loc, t, token.ident);
-                            nextToken();
+                            e = new TypeExp(loc, t);
                             e = parsePostExp(e);
                         }
                         else
@@ -6882,6 +6957,9 @@ void initPrecedence()
 #if DMDV2
     precedence[TOKfile] = PREC_primary;
     precedence[TOKline] = PREC_primary;
+    precedence[TOKmodulestring] = PREC_primary;
+    precedence[TOKfuncstring] = PREC_primary;
+    precedence[TOKprettyfunc] = PREC_primary;
 #endif
     precedence[TOKtypeid] = PREC_primary;
     precedence[TOKis] = PREC_primary;

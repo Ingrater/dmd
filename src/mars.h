@@ -88,9 +88,6 @@ void unittests();
 #define DMDV2   1       // Version 2.0 features
 #define SNAN_DEFAULT_INIT DMDV2 // if floats are default initialized to signalling NaN
 #define MODULEINFO_IS_STRUCT DMDV2   // if ModuleInfo is a struct rather than a class
-#define BUG6652 2       // Making foreach range statement parameter non-ref in default
-                        // 1: Modifying iteratee in body is warned with -w switch
-                        // 2: Modifying iteratee in body is error without -d switch
 
 // Set if C++ mangling is done by the front end
 #define CPP_MANGLE (DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS))
@@ -181,6 +178,7 @@ struct Param
     char ignoreUnsupportedPragmas;      // rather than error on them
     char enforcePropertySyntax;
     char betterC;       // be a "better C" compiler; no dependency on D runtime
+    bool addMain;       // add a default main() function
 
     char *argv0;        // program name
     Strings *imppath;     // array of char*'s of where to look for import modules
@@ -257,6 +255,7 @@ struct Global
     const char *map_ext;        // for .map files
     const char *copyright;
     const char *written;
+    const char *main_d;         // dummy filename for dummy main()
     Strings *path;        // Array of char*'s which form the import lookup path
     Strings *filePath;    // Array of char*'s which form the file import lookup path
 

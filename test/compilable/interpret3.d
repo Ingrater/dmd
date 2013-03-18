@@ -304,6 +304,27 @@ bool bug4837()
 static assert(bug4837());
 
 /**************************************************
+  'this' parameter bug revealed during refactoring
+**************************************************/
+int thisbug1(int x) { return x; }
+
+struct ThisBug1
+{
+    int m = 1;
+    int wut() {
+        return thisbug1(m);
+    }
+}
+
+int thisbug2()
+{
+    ThisBug1 spec;
+    return spec.wut();
+}
+
+static assert(thisbug2());
+
+/**************************************************
    6972 ICE with cast()cast()assign
 **************************************************/
 
@@ -1108,7 +1129,8 @@ struct Zadok
     int bfg()
     {
         z[0] = 56;
-        fog(z[]) = [56, 6, 8];
+        auto zs = z[];
+        fog(zs) = [56, 6, 8];
         assert(z[1] == 6);
         assert(z[0] == 56);
         return z[2];

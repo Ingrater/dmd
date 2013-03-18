@@ -93,10 +93,6 @@ enum PURE;
         STCmanifest | STCimmutable | STCshared | STCnothrow | STCpure | STCref | STCtls | \
         STCgshared | STCproperty | STCsafe | STCtrusted | STCsystem | STCdisable)
 
-#ifdef BUG6652
-#define STCbug6652      0x800000000000LL //
-#endif
-
 struct Match
 {
     int count;                  // number of matches found
@@ -131,10 +127,6 @@ struct Declaration : Dsymbol
     enum LINK linkage;
     int inuse;                  // used to detect cycles
 
-#ifdef IN_GCC
-    Expressions *attributes;    // GCC decl/type attributes
-#endif
-
     enum Semantic sem;
 
     Declaration(Identifier *id);
@@ -147,7 +139,7 @@ struct Declaration : Dsymbol
 
     void emitComment(Scope *sc);
     void toJson(JsonOut *json);
-    void jsonProperties(JsonOut *json);
+    virtual void jsonProperties(JsonOut *json);
     void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     char *mangle(bool isv = false);
@@ -168,7 +160,8 @@ struct Declaration : Dsymbol
     int isParameter()    { return storage_class & STCparameter; }
     int isDeprecated()   { return storage_class & STCdeprecated; }
     int isOverride()     { return storage_class & STCoverride; }
-    StorageClass isResult()       { return storage_class & STCresult; }
+    int isResult()       { return storage_class & STCresult; }
+    int isField()        { return storage_class & STCfield; }
 
     int isIn()    { return storage_class & STCin; }
     int isOut()   { return storage_class & STCout; }
@@ -668,6 +661,7 @@ struct FuncDeclaration : Declaration
     void appendState(Statement *s);
     char *mangle(bool isv = false);
     const char *toPrettyChars();
+    const char *toFullSignature();  // for diagnostics, e.g. 'int foo(int x, int y) pure'
     int isMain();
     int isWinMain();
     int isDllMain();
@@ -685,6 +679,8 @@ struct FuncDeclaration : Declaration
     bool isSafeBypassingInference();
     int isTrusted();
     bool setUnsafe();
+    bool isolateReturn();
+    bool parametersIntersect(Type *t);
     virtual int isNested();
     int needThis();
     int isVirtualMethod();
@@ -722,11 +718,11 @@ struct FuncDeclaration : Declaration
 };
 
 #if DMDV2
-FuncDeclaration *resolveFuncCall(Scope *sc, Loc loc, Dsymbol *s,
+FuncDeclaration *resolveFuncCall(Loc loc, Scope *sc, Dsymbol *s,
         Objects *tiargs,
         Expression *ethis,
         Expressions *arguments,
-        int flags);
+        int flags = 0);
 #endif
 
 struct FuncAliasDeclaration : FuncDeclaration
@@ -770,7 +766,6 @@ struct CtorDeclaration : FuncDeclaration
     int isVirtual();
     int addPreInvariant();
     int addPostInvariant();
-    bool isImplicit;  // implicitly generated ctor
 
     CtorDeclaration *isCtorDeclaration() { return this; }
 };
@@ -884,7 +879,8 @@ struct InvariantDeclaration : FuncDeclaration
 
 struct UnitTestDeclaration : FuncDeclaration
 {
-    UnitTestDeclaration(Loc loc, Loc endloc);
+    char *codedoc; /** For documented unittest. */
+    UnitTestDeclaration(Loc loc, Loc endloc, char *codedoc);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     AggregateDeclaration *isThis();
