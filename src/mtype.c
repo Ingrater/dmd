@@ -5949,7 +5949,7 @@ MATCH TypeFunction::callMatch(Expression *ethis, Expressions *args, int flag)
                 if (arg->op == TOKstring && tprmb->ty == Tsarray)
                 {   if (targb->ty != Tsarray)
                 	{
-                        targb = new TypeSArray(targb->nextOf(),
+                        targb = new TypeSArray(tprmb->nextOf()->castMod(targb->nextOf()->mod),
                                 new IntegerExp(0, ((StringExp *)arg)->len,
                                 Type::tindex));
                         targb = targb->semantic(0, NULL);
@@ -8487,12 +8487,25 @@ L1:
         // See if it's 'this' class or a base class
         if (e->op != TOKtype)
         {
-            Dsymbol *cbase = sym->ident == ident ?
-                             sym : sym->searchBase(e->loc, ident);
+            if (sym->ident == ident)
+            {
+                e = new DotTypeExp(0, e, sym);
+                return e;
+            }
+            
+            ClassDeclaration *cbase = sym->searchBase(e->loc, ident);
             if (cbase)
             {
-                e = new DotTypeExp(0, e, cbase);
-                return e;
+                if (InterfaceDeclaration *ifbase = cbase->isInterfaceDeclaration())
+                {
+                    e = new CastExp(0, e, ifbase->type);
+                    return e;
+                }
+                else
+                {
+                    e = new DotTypeExp(0, e, cbase);
+                    return e;
+                }
             }
         }
 

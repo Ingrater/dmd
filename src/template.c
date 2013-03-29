@@ -422,6 +422,7 @@ TemplateDeclaration::TemplateDeclaration(Loc loc, Identifier *id,
     this->literal = 0;
     this->ismixin = ismixin;
     this->previous = NULL;
+    this->protection = PROTundefined;
 
     // Compute in advance for Ddoc's use
     if (members)
@@ -1496,7 +1497,7 @@ Lretry:
                  prmtype->ty == Taarray && (taai = ((TypeAArray *)prmtype)->index)->ty == Tident &&
                                            ((TypeIdentifier *)taai)->idents.dim == 0))
             {
-                if (farg->op == TOKstring && !((StringExp *)farg)->committed)
+                if (farg->op == TOKstring)
                 {   StringExp *se = (StringExp *)farg;
                     argtype = new TypeSArray(argtype->nextOf(), new IntegerExp(se->loc, se->len, Type::tindex));
                     argtype = argtype->semantic(se->loc, NULL);
@@ -2476,6 +2477,11 @@ char *TemplateDeclaration::toChars()
 #endif
     buf.writeByte(0);
     return (char *)buf.extractData();
+}
+
+enum PROT TemplateDeclaration::prot()
+{
+    return protection;
 }
 
 /* ======================== Type ============================================ */
@@ -5050,7 +5056,11 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
 #endif
 
     // Copy the syntax trees from the TemplateDeclaration
-    members = Dsymbol::arraySyntaxCopy(tempdecl->members);
+    if (members && speculative)
+    {}  // Don't copy again so they were previously created.
+    else
+        members = Dsymbol::arraySyntaxCopy(tempdecl->members);
+
     // todo for TemplateThisParameter
     for (size_t i = 0; i < tempdecl->parameters->dim; i++)
     {
@@ -6511,7 +6521,10 @@ void TemplateMixin::semantic(Scope *sc)
     }
 
     // Copy the syntax trees from the TemplateDeclaration
-    members = Dsymbol::arraySyntaxCopy(tempdecl->members);
+    if (scx && members)
+    {}  // Don't copy again so they were previously created.
+    else
+        members = Dsymbol::arraySyntaxCopy(tempdecl->members);
     if (!members)
         return;
 

@@ -43,7 +43,7 @@ C=backend
 TK=tk
 ROOT=root
 
-MODEL=32
+# Use make MODEL=32 or MODEL=64 to force the architecture
 ifneq (x,x$(MODEL))
     MODEL_FLAG=-m$(MODEL)
 endif
@@ -55,6 +55,7 @@ LDFLAGS=-lm -lstdc++ -lpthread
 
 HOST_CC=g++
 CC=$(HOST_CC) $(MODEL_FLAG)
+GIT=git
 
 #OPT=-g -g3
 #OPT=-O2
@@ -96,9 +97,9 @@ DMD_OBJS = \
 	$(TARGET_OBJS)
 
 ifeq (OSX,$(OS))
-    DMD_OBJS += libmach.o machobj.o
+    DMD_OBJS += libmach.o scanmach.o machobj.o
 else
-    DMD_OBJS += libelf.o elfobj.o
+    DMD_OBJS += libelf.o scanelf.o elfobj.o
 endif
 
 SRC = win32.mak posix.mak \
@@ -117,11 +118,11 @@ SRC = win32.mak posix.mak \
 	doc.h doc.c macro.h macro.c hdrgen.h hdrgen.c arraytypes.h \
 	delegatize.c toir.h toir.c interpret.c traits.c cppmangle.c \
 	builtin.c clone.c lib.h libomf.c libelf.c libmach.c arrayop.c \
-	libmscoff.c \
+	libmscoff.c scanelf.c scanmach.c \
 	aliasthis.h aliasthis.c json.h json.c unittests.c imphint.c \
 	argtypes.c apply.c sideeffect.c \
 	intrange.h intrange.c canthrow.c target.c target.h \
-	scanmscoff.c ctfe.h ctfeexpr.c \
+	scanmscoff.c scanomf.c ctfe.h ctfeexpr.c \
 	$C/cdef.h $C/cc.h $C/oper.h $C/ty.h $C/optabgen.c \
 	$C/global.h $C/code.h $C/type.h $C/dt.h $C/cgcv.h \
 	$C/el.h $C/iasm.h $C/rtlsym.h \
@@ -195,8 +196,22 @@ impcnvgen : mtype.h impcnvgen.c
 
 #########
 
-verstr.h : ../VERSION
-	printf \"`cat ../VERSION`\" > verstr.h
+# Create (or update) the verstr.h file.
+# The file is only updated if the VERSION file changes, or, only when RELEASE=1
+# is not used, when the full version string changes (i.e. when the git hash or
+# the working tree dirty states changes).
+# The full version string have the form VERSION-devel-HASH(-dirty).
+# The "-dirty" part is only present when the repository had uncommitted changes
+# at the moment it was compiled (only files already tracked by git are taken
+# into account, untracked files don't affect the dirty state).
+VERSION := $(shell cat ../VERSION)
+ifneq (1,$(RELEASE))
+VERSION_GIT := $(shell printf "`$(GIT) rev-parse --short HEAD`"; \
+       test -n "`$(GIT) status --porcelain -uno`" && printf -- -dirty)
+VERSION := $(addsuffix -devel$(if $(VERSION_GIT),-$(VERSION_GIT)),$(VERSION))
+endif
+$(shell test \"$(VERSION)\" != "`cat verstr.h 2> /dev/null`" \
+		&& printf \"$(VERSION)\" > verstr.h )
 
 #########
 
@@ -537,6 +552,12 @@ rtlsym.o: $C/rtlsym.c $C/rtlsym.h
 
 s2ir.o: s2ir.c $C/rtlsym.h statement.h
 	$(CC) -c $(MFLAGS) -I$(ROOT) $<
+
+scanelf.o: scanelf.c $C/melf.h
+	$(CC) -c $(CFLAGS) -I$C $<
+
+scanmach.o: scanmach.c $C/mach.h
+	$(CC) -c $(CFLAGS) -I$C $<
 
 scope.o: scope.c
 	$(CC) -c $(CFLAGS) $<

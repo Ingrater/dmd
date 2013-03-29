@@ -106,7 +106,9 @@ void AggregateDeclaration::semantic3(Scope *sc)
         }
         sc->pop();
 
-        if (!getRTInfo)
+        if (!getRTInfo && Type::rtinfo && 
+            (!isDeprecated() || global.params.useDeprecated) && // don't do it for unused deprecated types
+            (type && type->ty != Terror)) // or error types
         {   // Evaluate: gcinfo!type
             Objects *tiargs = new Objects();
             tiargs->push(type);
@@ -655,6 +657,15 @@ void StructDeclaration::semantic(Scope *sc)
         deferred->semantic2(sc);
         deferred->semantic3(sc);
     }
+
+#if 0
+    if (type->ty == Tstruct && ((TypeStruct *)type)->sym != this)
+    {
+        printf("this = %p %s\n", this, this->toChars());
+        printf("type = %d %s, sym = %p\n", type->ty, type->toChars(), ((TypeStruct *)type)->sym);
+    }
+#endif
+    assert(type->ty != Tstruct || ((TypeStruct *)type)->sym == this);
 }
 
 Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
