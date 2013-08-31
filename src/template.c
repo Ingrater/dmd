@@ -2329,11 +2329,8 @@ void functionResolve(Match *m, Dsymbol *dstart, Loc loc, Scope *sc,
             if (td->scope)
             {
                 // Try to fix forward reference. Ungag errors while doing so.
-                int oldgag = global.gag;
-                if (global.isSpeculativeGagging() && !td->isSpeculative())
-                    global.gag = 0;
+                Ungag ungag = td->ungagSpeculative();
                 td->semantic(td->scope);
-                global.gag = oldgag;
             }
         }
         if (!td->semanticRun)
@@ -5489,7 +5486,14 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
         }
         else
         {
-            Module *m = (enclosing ? sc : tempdecl->scope)->module;
+            Dsymbol *s = enclosing ? enclosing : tempdecl->parent;
+            for (; s; s = s->toParent2())
+            {
+                if (s->isModule())
+                    break;
+            }
+            assert(s);
+            Module *m = (Module *)s;
             if (m->importedFrom != m)
             {
                 //if (tinst && tinst->objFileModule)
@@ -6109,13 +6113,8 @@ bool TemplateInstance::findTemplateDeclaration(Scope *sc)
             if (td->scope)
             {
                 // Try to fix forward reference. Ungag errors while doing so.
-                int oldgag = global.gag;
-                if (global.isSpeculativeGagging() && !td->isSpeculative())
-                    global.gag = 0;
-
+                Ungag ungag = td->ungagSpeculative();
                 td->semantic(td->scope);
-
-                global.gag = oldgag;
             }
             if (!td->semanticRun)
             {
