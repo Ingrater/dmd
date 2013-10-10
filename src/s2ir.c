@@ -33,6 +33,7 @@
 #include        "dt.h"
 
 #include        "rmem.h"
+#include        "target.h"
 
 static char __file__[] = __FILE__;      // for tassert.h
 #include        "tassert.h"
@@ -366,49 +367,6 @@ void ContinueStatement::toIR(IRState *irs)
     block_next(blx, BCgoto, NULL);
 }
 
-/**************************************
- */
-
-void el_setVolatile(elem *e)
-{
-    elem_debug(e);
-    while (1)
-    {
-        e->Ety |= mTYvolatile;
-        if (OTunary(e->Eoper))
-            e = e->E1;
-        else if (OTbinary(e->Eoper))
-        {   el_setVolatile(e->E2);
-            e = e->E1;
-        }
-        else
-            break;
-    }
-}
-
-void VolatileStatement::toIR(IRState *irs)
-{
-    block *b;
-
-    if (statement)
-    {
-        Blockx *blx = irs->blx;
-
-        block_goto(blx, BCgoto, NULL);
-        b = blx->curblock;
-
-        statement->toIR(irs);
-
-        block_goto(blx, BCgoto, NULL);
-
-        // Mark the blocks generated as volatile
-        for (; b != blx->curblock; b = b->Bnext)
-        {   b->Bflags |= BFLvolatile;
-            if (b->Belem)
-                el_setVolatile(b->Belem);
-        }
-    }
-}
 
 /**************************************
  */
@@ -583,7 +541,7 @@ void SwitchStatement::toIR(IRState *irs)
         dt_t *dt = NULL;
         Symbol *si = symbol_generate(SCstatic,type_fake(TYdarray));
         dtsize_t(&dt, numcases);
-        dtxoff(&dt, si, PTRSIZE * 2, TYnptr);
+        dtxoff(&dt, si, Target::ptrsize * 2, TYnptr);
 
         for (size_t i = 0; i < numcases; i++)
         {   CaseStatement *cs = (*cases)[i];

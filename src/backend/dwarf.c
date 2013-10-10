@@ -149,6 +149,7 @@ struct CFA_state
     CFA_reg regstates[17];      // register states
 };
 
+#if TX86
 int dwarf_regno(int reg)
 {
     assert(reg < NUMGENREGS);
@@ -162,6 +163,7 @@ int dwarf_regno(int reg)
         return reg < 8 ? to_amd64_reg_map[reg] : reg;
     }
 }
+#endif
 
 static CFA_state CFA_state_init_32 =       // initial CFA state as defined by CIE
 {   0,                // location
@@ -924,6 +926,11 @@ void dwarf_termfile()
 
     debugline.total_length = linebuf->size() - 4;
     memcpy(linebuf->buf, &debugline, sizeof(debugline));
+
+    // Bugzilla 3502, workaround OSX's ld64-77 bug.
+    // Don't emit the the debug_line section if nothing has been written to the line table.
+    if (debugline.prologue_length + 10 == debugline.total_length + 4)
+        linebuf->reset();
 
     /* ================================================= */
 

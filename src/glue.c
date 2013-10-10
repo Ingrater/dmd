@@ -23,6 +23,7 @@
 #include "import.h"
 #include "template.h"
 #include "lib.h"
+#include "target.h"
 
 #include "rmem.h"
 #include "cc.h"
@@ -34,10 +35,6 @@
 #include "cgcv.h"
 #include "outbuf.h"
 #include "irstate.h"
-
-struct Environment;
-
-Environment *benv;
 
 void slist_add(Symbol *s);
 void slist_reset();
@@ -393,11 +390,13 @@ void Module::genobjfile(int multiobj)
             ebcov = addressElem(ebcov, Type::tvoid->arrayOf(), false);
         }
 
-        elem *e = el_params(ecov,
+        elem *e = el_params(
+                      el_long(TYuchar, global.params.covPercent),
+                      ecov,
                       ebcov,
                       toEfilename(),
                       NULL);
-        e = el_bin(OPcall, TYvoid, el_var(rtlsym[RTLSYM_DCOVER]), e);
+        e = el_bin(OPcall, TYvoid, el_var(rtlsym[RTLSYM_DCOVER2]), e);
         eictor = el_combine(e, eictor);
         ictorlocalgot = localgot;
     }
@@ -914,27 +913,42 @@ void FuncDeclaration::toObjFile(int multiobj)
         bx.module = getModule();
         irs.blx = &bx;
 
-        /* If profiling, insert call to the profiler here.
-         *      _c_trace_pro(char* funcname);
+        /* Doing this in semantic3() caused all kinds of problems:
+         * 1. couldn't reliably get the final mangling of the function name due to fwd refs
+         * 2. impact on function inlining
+         * 3. what to do when writing out .di files, or other pretty printing
          */
         if (global.params.trace)
-        {
-            dt_t *dt = NULL;
+        {   /* Wrap the entire function body in:
+             *   trace_pro("funcname");
+             *   try
+             *     body;
+             *   finally
+             *     _c_trace_epi();
+             */
+            StringExp *se = new StringExp(Loc(), s->Sident);
+            se->type = new TypeDArray(Type::tchar->invariantOf());
+            se->type = se->type->semantic(Loc(), NULL);
+            Expressions *exps = new Expressions();
+            exps->push(se);
+            FuncDeclaration *fdpro = FuncDeclaration::genCfunc(Type::tvoid, "trace_pro");
+            Expression *ec = new VarExp(Loc(), fdpro);
+            Expression *e = new CallExp(Loc(), ec, exps);
+            e->type = Type::tvoid;
+            Statement *sp = new ExpStatement(loc, e);
 
-            char *id = s->Sident;
-            size_t len = strlen(id);
-            dtnbytes(&dt, len + 1, id);
+            FuncDeclaration *fdepi = FuncDeclaration::genCfunc(Type::tvoid, "_c_trace_epi");
+            ec = new VarExp(Loc(), fdepi);
+            e = new CallExp(Loc(), ec);
+            e->type = Type::tvoid;
+            Statement *sf = new ExpStatement(loc, e);
 
-            Symbol *sfuncname = symbol_generate(SCstatic,type_fake(TYchar));
-            sfuncname->Sdt = dt;
-            sfuncname->Sfl = FLdata;
-            out_readonly(sfuncname);
-            outdata(sfuncname);
-            elem *efuncname = el_ptr(sfuncname);
-
-            elem *eparam = el_params(efuncname, el_long(TYsize_t, len), NULL);
-            elem *e = el_bin(OPcall, TYvoid, el_var(rtlsym[RTLSYM_TRACE_CPRO]), eparam);
-            block_appendexp(bx.curblock, e);
+            Statement *stf;
+            if (sbody->blockExit(tf->isnothrow) == BEfallthru)
+                stf = new CompoundStatement(Loc(), sbody, sf);
+            else
+                stf = new TryFinallyStatement(Loc(), sbody, sf);
+            sbody = new CompoundStatement(Loc(), sp, stf);
         }
 
 #if DMDV2
@@ -943,7 +957,7 @@ void FuncDeclaration::toObjFile(int multiobj)
 
 #if TARGET_WINDOS
         if (func->isSynchronized() && cd && config.flags2 & CFG2seh &&
-            !func->isStatic() && !sbody->usesEH())
+            !func->isStatic() && !sbody->usesEH() && !global.params.trace)
         {
             /* The "jmonitor" hack uses an optimized exception handling frame
              * which is a little shorter than the more general EH frame.
@@ -1071,16 +1085,21 @@ void FuncDeclaration::toObjFile(int multiobj)
 
 bool onlyOneMain(Loc loc)
 {
+    static Loc lastLoc;
     static bool hasMain = false;
     if (hasMain)
     {
+        const char *msg = NULL;
+        if (global.params.addMain)
+            msg = ", -main switch added another main()";
 #if TARGET_WINDOS
-        error(loc, "only one main/WinMain/DllMain allowed");
+        error(lastLoc, "only one main/WinMain/DllMain allowed%s", msg ? msg : "");
 #else
-        error(loc, "only one main allowed");
+        error(lastLoc, "only one main allowed%s", msg ? msg : "");
 #endif
         return false;
     }
+    lastLoc = loc;
     hasMain = true;
     return true;
 }
@@ -1144,7 +1163,7 @@ unsigned Type::totym()
 #ifdef DEBUG
             printf("ty = %d, '%s'\n", ty, toChars());
 #endif
-            error(0, "forward reference of %s", toChars());
+            error(Loc(), "forward reference of %s", toChars());
             t = TYint;
             break;
 
@@ -1177,11 +1196,11 @@ unsigned Type::totym()
                 if (global.params.is64bit || global.params.isOSX)
                     ;
                 else
-                {   error(0, "SIMD vector types not supported on this platform");
+                {   error(Loc(), "SIMD vector types not supported on this platform");
                     once = true;
                 }
-                if (tv->size(0) == 32)
-                {   error(0, "AVX vector types not supported");
+                if (tv->size(Loc()) == 32)
+                {   error(Loc(), "AVX vector types not supported");
                     once = true;
                 }
             }
@@ -1291,7 +1310,7 @@ Symbol *Module::gencritsec()
     s->Sfl = FLdata;
     /* Must match D_CRITICAL_SECTION in phobos/internal/critical.c
      */
-    dtnzeros(&s->Sdt, PTRSIZE + (I64 ? os_critsecsize64() : os_critsecsize32()));
+    dtnzeros(&s->Sdt, Target::ptrsize + (I64 ? os_critsecsize64() : os_critsecsize32()));
     outdata(s);
     return s;
 }

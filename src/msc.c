@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
+// Copyright (c) 1999-2013 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -27,7 +27,6 @@ static char __file__[] = __FILE__;      /* for tassert.h                */
 
 
 extern Global global;
-extern int REALSIZE;
 
 Config config;
 Configv configv;
@@ -72,7 +71,9 @@ void backend_init()
     bool exe;
 #if TARGET_WINDOS
     exe = false;
-    if (params->run)
+    if (params->dll)
+        ;
+    else if (params->run)
         exe = true;         // EXE file only optimizations
     else if (params->link && !global.params.deffile)
         exe = true;         // EXE file only optimizations
@@ -89,7 +90,7 @@ void backend_init()
     out_config_init(
         params->is64bit ? 64 : 32,
         exe,
-        params->trace,
+        false, //params->trace,
         params->nofloat,
         params->verbose,
         params->optimize,

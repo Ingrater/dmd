@@ -28,6 +28,7 @@
 #include        "module.h"
 #include        "init.h"
 #include        "template.h"
+#include        "target.h"
 
 #include        "mem.h" // for mem_malloc
 
@@ -693,7 +694,7 @@ void FuncDeclaration::buildClosure(IRState *irs)
         symbol_add(sclosure);
         irs->sclosure = sclosure;
 
-        unsigned offset = PTRSIZE;      // leave room for previous sthis
+        unsigned offset = Target::ptrsize;      // leave room for previous sthis
         for (size_t i = 0; i < closureVars.dim; i++)
         {   VarDeclaration *v = closureVars[i];
             //printf("closure var %s\n", v->toChars());
@@ -723,9 +724,9 @@ void FuncDeclaration::buildClosure(IRState *irs)
                 /* Lazy variables are really delegates,
                  * so give same answers that TypeDelegate would
                  */
-                memsize = PTRSIZE * 2;
+                memsize = Target::ptrsize * 2;
                 memalignsize = memsize;
-                xalign = global.structalign;
+                xalign = STRUCTALIGN_DEFAULT;
             }
             else if (ISWIN64REF(v))
             {
@@ -735,9 +736,9 @@ void FuncDeclaration::buildClosure(IRState *irs)
             }
             else if (ISREF(v, NULL))
             {    // reference parameters are just pointers
-                memsize = PTRSIZE;
+                memsize = Target::ptrsize;
                 memalignsize = memsize;
-                xalign = global.structalign;
+                xalign = STRUCTALIGN_DEFAULT;
             }
             else
 #endif
@@ -932,6 +933,10 @@ L2:
                     //printf("  3 RETregs\n");
                     return RETregs;     // return small structs in regs
                                         // (not 3 byte structs!)
+                case 16:
+                    if (!global.params.isWindows && global.params.is64bit)
+                       return RETregs;
+
                 default:
                     break;
             }

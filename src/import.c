@@ -164,7 +164,7 @@ void Import::importAll(Scope *sc)
     {
         load(sc);
         if (mod)                // if successfully loaded module
-        {   mod->importAll(0);
+        {   mod->importAll(NULL);
 
             if (!isstatic && !aliasId && !names.dim)
             {
@@ -180,11 +180,16 @@ void Import::semantic(Scope *sc)
 {
     //printf("Import::semantic('%s')\n", toChars());
 
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
+
     // Load if not already done so
     if (!mod)
     {   load(sc);
         if (mod)
-            mod->importAll(0);
+            mod->importAll(NULL);
     }
 
     if (mod)
@@ -234,14 +239,16 @@ void Import::semantic(Scope *sc)
         sc->protection = PROTpublic;
 #endif
         for (size_t i = 0; i < aliasdecls.dim; i++)
-        {   Dsymbol *s = aliasdecls[i];
+        {   AliasDeclaration *ad = aliasdecls[i];
 
             //printf("\tImport alias semantic('%s')\n", s->toChars());
             if (mod->search(loc, names[i], 0))
-                s->semantic(sc);
+            {
+                ad->semantic(sc);
+            }
             else
             {
-                s = mod->search_correct(names[i]);
+                Dsymbol *s = mod->search_correct(names[i]);
                 if (s)
                     mod->error(loc, "import '%s' not found, did you mean '%s %s'?", names[i]->toChars(), s->kind(), s->toChars());
                 else
@@ -374,6 +381,7 @@ int Import::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
 
         TypeIdentifier *tname = new TypeIdentifier(loc, name);
         AliasDeclaration *ad = new AliasDeclaration(loc, alias, tname);
+        ad->import = this;
         result |= ad->addMember(sc, sd, memnum);
 
         aliasdecls.push(ad);

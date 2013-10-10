@@ -95,7 +95,7 @@ enum PROT
 };
 
 // this is used for printing the protection in json, traits, docs, etc.
-static const char* Pprotectionnames[] = {NULL, "none", "private", "package", "protected", "public", "export"};
+extern const char* Pprotectionnames[];
 
 /* State of symbol in winding its way through the passes of the compiler
  */
@@ -115,7 +115,6 @@ typedef int (*Dsymbol_apply_ft_t)(Dsymbol *, void *);
 struct Dsymbol : Object
 {
     Identifier *ident;
-    Identifier *c_ident;
     Dsymbol *parent;
     Symbol *csym;               // symbol for code generator
     Symbol *isym;               // import version of csym
@@ -165,9 +164,8 @@ struct Dsymbol : Object
     virtual void inlineScan();
     virtual Dsymbol *search(Loc loc, Identifier *ident, int flags);
     Dsymbol *search_correct(Identifier *id);
-    Dsymbol *searchX(Loc loc, Scope *sc, Identifier *id);
+    Dsymbol *searchX(Loc loc, Scope *sc, Object *id);
     virtual int overloadInsert(Dsymbol *s);
-    char *toHChars();
     virtual void toHBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual void toDocBuffer(OutBuffer *buf, Scope *sc);
@@ -182,7 +180,7 @@ struct Dsymbol : Object
     ClassDeclaration *isClassMember();          // are we a member of a class?
     virtual int isExport();                     // is Dsymbol exported?
     virtual int isImportedSymbol();             // is Dsymbol imported?
-    virtual int isDeprecated();                 // is Dsymbol deprecated?
+    virtual bool isDeprecated();                // is Dsymbol deprecated?
 #if DMDV2
     virtual int isOverloadable();
     virtual int hasOverloads();
@@ -190,7 +188,7 @@ struct Dsymbol : Object
     virtual LabelDsymbol *isLabel();            // is this a LabelDsymbol?
     virtual AggregateDeclaration *isMember();   // is this symbol a member of an AggregateDeclaration?
     virtual Type *getType();                    // is this a type?
-    virtual char *mangle(bool isv = false);
+    virtual const char *mangle(bool isv = false);
     virtual int needThis();                     // need a 'this' pointer?
     virtual enum PROT prot();
     virtual Dsymbol *syntaxCopy(Dsymbol *s);    // copy only syntax trees
@@ -330,7 +328,7 @@ struct OverloadSet : Dsymbol
 {
     Dsymbols a;         // array of Dsymbols
 
-    OverloadSet();
+    OverloadSet(Identifier *ident);
     void push(Dsymbol *s);
     OverloadSet *isOverloadSet() { return this; }
     const char *kind();
