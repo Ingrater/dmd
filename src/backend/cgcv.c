@@ -114,6 +114,11 @@ int cv_namestring(unsigned char *p,const char *name)
     if (config.fulltypes == CV8)
     {
         memcpy(p, name, len + 1);
+		#if 1
+		for(int i = 0; i < len; i++)
+	        if(p[i] == '.')
+                p[i] = '@';
+		#endif
         return len + 1;
     }
     if (len > 255)
