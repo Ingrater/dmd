@@ -682,14 +682,22 @@ void cv8_udt(const char *id, idx_t typidx)
     //printf("cv8_udt('%s', %x)\n", id, typidx);
     Outbuffer *buf = currentfuncdata.f1buf;
     size_t len = strlen(id);
+
+    char cvid[1024];
+    char* pcvid = (len >= 1024 ? (char*) malloc(len + 1) : cvid);
+    cv_namestring((unsigned char*) pcvid, id);
+
     if (len > CV8_MAX_SYMBOL_LENGTH)
         len = CV8_MAX_SYMBOL_LENGTH;
     buf->reserve(2 + 2 + 4 + len + 1);
     buf->writeWordn( 2 + 4 + len + 1);
     buf->writeWordn(S_UDT_V3);
     buf->write32(typidx);
-    buf->writen(id, len);
+    buf->writen(pcvid, len);
     buf->writeByte(0);
+
+    if (pcvid != cvid)
+        free(pcvid);
 }
 
 /*********************************************
@@ -762,6 +770,11 @@ idx_t cv8_fwdref(Symbol *s)
     }
     unsigned len = numidx + cv4_numericbytes(0);
     int idlen = strlen(s->Sident);
+
+    char cvid[1024];
+    char* pcvid = (len >= 1024 ? (char*) malloc(len + 1) : cvid);
+    cv_namestring((unsigned char*) pcvid, s->Sident);
+
     if (idlen > CV8_MAX_SYMBOL_LENGTH)
         idlen = CV8_MAX_SYMBOL_LENGTH;
 
@@ -776,10 +789,14 @@ idx_t cv8_fwdref(Symbol *s)
         TOLONG(d->data + 14, 0);        // vshape
     }
     cv4_storenumeric(d->data + numidx, 0);
-    memcpy(d->data + len, s->Sident, idlen);
+    memcpy(d->data + len, pcvid, idlen);
     d->data[len + idlen] = 0;
     idx_t typidx = cv_debtyp(d);
     s->Stypidx = typidx;
+
+    if (pcvid != cvid)
+        free(pcvid);
+
     return typidx;
 }
 
