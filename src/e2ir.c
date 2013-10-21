@@ -2761,6 +2761,7 @@ elem *AssignExp::toElem(IRState *irs)
          */
         if (are->lwr == NULL && ta->ty == Tsarray &&
             e2->op == TOKarrayliteral &&
+            op == TOKconstruct &&   // Bugzilla 11238: avoid aliasing issue
             t2->nextOf()->mutableOf()->implicitConvTo(ta->nextOf()))
         {
             ArrayLiteralExp *ae = (ArrayLiteralExp *)e2;
@@ -5315,16 +5316,10 @@ elem *StructLiteralExp::toElem(IRState *irs)
         e = el_combine(e, fillHole(stmp, &offset, sd->structsize, sd->structsize));
     }
 
-    bool hasHidden = false;
-
-    if (elements)
+    size_t dim = elements ? elements->dim : 0;
+    assert(dim <= sd->fields.dim);
+    // CTFE may fill the hidden pointer by NullExp.
     {
-        size_t dim = elements->dim;
-        assert(dim <= sd->fields.dim);
-
-        // CTFE may fill the hidden pointer by NullExp.
-        hasHidden = sd->isNested() && dim == sd->fields.dim;
-
         for (size_t i = 0; i < dim; i++)
         {
             Expression *el = (*elements)[i];
@@ -5387,7 +5382,7 @@ elem *StructLiteralExp::toElem(IRState *irs)
     }
 
 #if DMDV2
-    if (sd->isNested() && !hasHidden)
+    if (sd->isNested() && dim != sd->fields.dim)
     {
         // Initialize the hidden 'this' pointer
         assert(sd->fields.dim);
