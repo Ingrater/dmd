@@ -1312,6 +1312,10 @@ bool Expression::checkPostblit(Scope *sc, Type *t)
     t = t->baseElemOf();
     if (t->ty == Tstruct)
     {
+        // Bugzilla 11395: Require TypeInfo generation for array concatenation
+        if (!t->vtinfo)
+            t->getTypeInfo(sc);
+
         StructDeclaration *sd = ((TypeStruct *)t)->sym;
         if (sd->postblit)
         {
@@ -11937,10 +11941,26 @@ Ltupleassign:
             warning("explicit element-wise assignment %s = (%s)[] is better than %s = %s",
                 e1str, e2str, e1str, e2str);
         }
-        if (op == TOKconstruct)
+
+        Type *t2n = t2->nextOf();
+        Type *t1n = t1->nextOf();
+        int offset;
+        if (t2n->immutableOf()->equals(t1n->immutableOf()) ||
+            t1n->isBaseOf(t2n, &offset) && offset == 0)
+        {
+            /* Allow copy of distinct qualifier elements.
+             * eg.
+             *  char[] dst;  const(char)[] src;
+             *  dst[] = src;
+             *
+             *  class C {}   class D : C {}
+             *  C[2] ca;  D[] da;
+             *  ca[] = da;
+             */
             e2 = e2->castTo(sc, e1->type->constOf());
+        }
         else
-            e2 = e2->implicitCastTo(sc, e1->type->constOf());
+            e2 = e2->implicitCastTo(sc, e1->type);
     }
     else
     {
@@ -12554,9 +12574,9 @@ Expression *CatExp::semantic(Scope *sc)
         {
             type = type->nextOf()->toHeadMutable()->arrayOf();
         }
-        if (tb->nextOf())
+        if (Type *tbn = tb->nextOf())
         {
-            checkPostblit(sc, tb->nextOf());
+            checkPostblit(sc, tbn);
         }
 #if 0
         e1->type->print();
