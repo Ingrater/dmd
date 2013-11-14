@@ -5682,7 +5682,7 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
             }
         }
     }
-    if (found_deferred_ad)
+    if (found_deferred_ad || Module::deferred.dim)
         goto Laftersemantic;
 
     /* ConditionalDeclaration may introduce eponymous declaration,
@@ -7029,6 +7029,8 @@ void TemplateInstance::toCBufferTiargs(OutBuffer *buf, HdrGenState *hgs)
     buf->writeByte('!');
     if (nest)
         buf->writestring("(...)");
+    else if (!tiargs)
+        buf->writestring("()");
     else
     {
         if (tiargs->dim == 1)

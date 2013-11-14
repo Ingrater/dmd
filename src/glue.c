@@ -291,6 +291,22 @@ void Module::genobjfile(int multiobj)
 
     //printf("Module::genobjfile(multiobj = %d) %s\n", multiobj, toChars());
 
+    if (ident == Id::entrypoint)
+    {
+        char v = global.params.verbose;
+        global.params.verbose = 0;
+
+        for (size_t i = 0; i < members->dim; i++)
+        {
+            Dsymbol *member = (*members)[i];
+            //printf("toObjFile %s %s\n", member->kind(), member->toChars());
+            member->toObjFile(global.params.multiobj);
+        }
+
+        global.params.verbose = v;
+        return;
+    }
+
     lastmname = srcfile->toChars();
 
     objmod->initfile(lastmname, NULL, toPrettyChars());
@@ -586,6 +602,13 @@ void FuncDeclaration::toObjFile(int multiobj)
      */
     TemplateInstance *ti = inTemplateInstance();
     if (!global.params.useUnitTests &&
+        !global.params.allInst &&
+        /* The issue is that if the importee is compiled with a different -debug
+         * setting than the importer, the importer may believe it exists
+         * in the compiled importee when it does not, when the instantiation
+         * is behind a conditional debug declaration.
+         */
+        !global.params.debuglevel &&     // workaround for Bugzilla 11239
         ti && ti->instantiatingModule && !ti->instantiatingModule->isRoot())
     {
         Module *mi = ti->instantiatingModule;
