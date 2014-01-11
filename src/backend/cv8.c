@@ -352,9 +352,16 @@ void cv8_func_term(Symbol *sfunc)
     buf->write32(0);
     buf->writeWordn(0);
 
+    char cid[1024];
+    char* pcid = (len >= 1024 ? (char*) malloc(len + 1) : cid);
+    cv_namestring((unsigned char*) pcid, id);
+
     buf->writeByte(0);
-    buf->writen(id, len);
+    buf->writen(pcid, len);
     buf->writeByte(0);
+
+    if(pcid != cid)
+        free(pcid);
 
     // Write local symbol table
     bool endarg = false;
