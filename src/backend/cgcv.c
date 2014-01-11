@@ -1866,7 +1866,10 @@ L1:
                         TOLONG(d->data + 2,next);
                         /* BUG: attribute bits are unknown, 0x1000C is maaaagic
                          */
-                        TOLONG(d->data + 6,attribute | 0x1000C);
+                        if(t->Tnext && t->Tnext->Tty == TYdarray)
+                            TOLONG(d->data + 6,attribute | 0x20);
+                        else
+                            TOLONG(d->data + 6,attribute | 0x1000C);
                         break;
 
                     default:
