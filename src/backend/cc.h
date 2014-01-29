@@ -1224,6 +1224,7 @@ struct Symbol
         #define SFLnodebug      0x20000 // don't generate debug info
         #define SFLwasstatic    0x800000 // was an uninitialized static
         #define SFLweak         0x1000000 // resolve to NULL if not found
+        #define SFLartifical    0x4000000 // compiler generated symbol
 
         // CPP
         #define SFLnodtor       0x10    // set if destructor for Symbol is already called
@@ -1488,6 +1489,7 @@ typedef struct Sfile
     symlist_t SFtemp_ft;        // template_ftlist
     symlist_t SFtemp_class;     // template_class_list
     Symbol   *SFtagsymdefs;     // list of tag names (C only)
+    char     *SFinc_once_id;    // macro include guard identifier
     unsigned SFhashval;         // hash of file name
 } Sfile;
 

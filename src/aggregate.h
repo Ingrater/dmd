@@ -42,6 +42,13 @@ enum Sizeok
     SIZEOKfwd,          // error in computing size of aggregate
 };
 
+enum StructPOD
+{
+    ISPODno,            // struct is not POD
+    ISPODyes,           // struct is POD
+    ISPODfwd,           // POD not yet computed
+};
+
 class AggregateDeclaration : public ScopeDsymbol
 {
 public:
@@ -51,13 +58,11 @@ public:
     Type *handle;               // 'this' type
     unsigned structsize;        // size of struct
     unsigned alignsize;         // size of struct for alignment purposes
-    int hasUnions;              // set if aggregate has overlapping fields
     VarDeclarations fields;     // VarDeclaration fields
     Sizeok sizeok;         // set when structsize contains valid data
     Dsymbol *deferred;          // any deferred semantic2() or semantic3() symbol
     bool isdeprecated;          // !=0 if deprecated
 
-#if DMDV2
     Dsymbol *enclosing;         /* !=NULL if is nested
                                  * pointing to the dsymbol that directly enclosing it.
                                  * 1. The function that enclosing it (nested struct and class)
@@ -66,20 +71,17 @@ public:
                                  * See AggregateDeclaraton::makeNested for the details.
                                  */
     VarDeclaration *vthis;      // 'this' parameter if this aggregate is nested
-#endif
     // Special member functions
     FuncDeclarations invs;              // Array of invariants
     FuncDeclaration *inv;               // invariant
     NewDeclaration *aggNew;             // allocator
     DeleteDeclaration *aggDelete;       // deallocator
 
-#if DMDV2
     Dsymbol *ctor;                      // CtorDeclaration or TemplateDeclaration
     CtorDeclaration *defaultCtor;       // default constructor - should have no arguments, because
                                         // it would be stored in TypeInfo_Class.defaultConstructor
     Dsymbol *aliasthis;                 // forward unresolved lookups to aliasthis
     bool noDefaultCtor;         // no default construction
-#endif
 
     FuncDeclarations dtors;     // Array of destructors
     FuncDeclaration *dtor;      // aggregate destructor
@@ -108,7 +110,6 @@ public:
     void searchCtor();
 
     void emitComment(Scope *sc);
-    void toJson(JsonOut *json);
     void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     FuncDeclaration *hasIdentityOpAssign(Scope *sc);
@@ -130,6 +131,7 @@ public:
     Symbol *toInitializer();
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 struct StructFlags
@@ -145,7 +147,6 @@ class StructDeclaration : public AggregateDeclaration
 {
 public:
     int zeroInit;               // !=0 if initialize with 0 fill
-#if DMDV2
     int hasIdentityAssign;      // !=0 if has identity opAssign
     int hasIdentityEquals;      // !=0 if has identity opEquals
     FuncDeclaration *cpctor;    // generated copy-constructor, if any
@@ -158,7 +159,7 @@ public:
     static FuncDeclaration *xerrcmp;     // object.xopCmp
 
     structalign_t alignment;    // alignment applied outside of the struct
-#endif
+    StructPOD ispod;            // if struct is POD
 
     // For 64 bit Efl function call/return ABI
     Type *arg1type;
@@ -167,16 +168,13 @@ public:
     StructDeclaration(Loc loc, Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
-    Dsymbol *search(Loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc, Identifier *ident, int flags = IgnoreNone);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *mangle(bool isv = false);
     const char *kind();
     void finalizeSize(Scope *sc);
+    bool fill(Loc loc, Expressions *elements, bool ctorinit);
     bool isPOD();
-#if DMDV1
-    Expression *cloneMembers();
-#endif
-#if DMDV2
     int needOpAssign();
     int needOpEquals();
     FuncDeclaration *buildOpAssign(Scope *sc);
@@ -185,7 +183,6 @@ public:
     FuncDeclaration *buildOpEquals(Scope *sc);
     FuncDeclaration *buildXopEquals(Scope *sc);
     FuncDeclaration *buildXopCmp(Scope *sc);
-#endif
     void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     PROT getAccess(Dsymbol *smember);   // determine access to smember
@@ -195,6 +192,7 @@ public:
     void toDebug();                     // to symbolic debug info
 
     StructDeclaration *isStructDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class UnionDeclaration : public StructDeclaration
@@ -205,6 +203,7 @@ public:
     const char *kind();
 
     UnionDeclaration *isUnionDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 struct BaseClass
@@ -228,13 +227,8 @@ struct BaseClass
     void copyBaseInterfaces(BaseClasses *);
 };
 
-#if DMDV2
 #define CLASSINFO_SIZE_64  0x98         // value of ClassInfo.size
 #define CLASSINFO_SIZE  (0x3C+12+4)     // value of ClassInfo.size
-#else
-#define CLASSINFO_SIZE  (0x3C+12+4)     // value of ClassInfo.size
-#define CLASSINFO_SIZE_64  (0x98)       // value of ClassInfo.size
-#endif
 
 struct ClassFlags
 {
@@ -261,10 +255,6 @@ public:
     static ClassDeclaration *errorException;
 
     ClassDeclaration *baseClass;        // NULL only if this is Object
-#if DMDV1
-    CtorDeclaration *ctor;
-    CtorDeclaration *defaultCtor;       // default constructor
-#endif
     FuncDeclaration *staticCtor;
     FuncDeclaration *staticDtor;
     Dsymbols vtbl;                      // Array of FuncDeclaration's making up the vtbl[]
@@ -283,9 +273,7 @@ public:
     TypeInfoClassDeclaration *vclassinfo;       // the ClassInfo object for this ClassDeclaration
     int com;                            // !=0 if this is a COM class (meaning
                                         // it derives from IUnknown)
-#if DMDV2
     int cpp;                            // !=0 if this is a C++ interface
-#endif
     int isscope;                        // !=0 if this is an auto class
     int isabstract;                     // !=0 if abstract class
     int inuse;                          // to prevent recursive attempts
@@ -303,19 +291,15 @@ public:
     virtual int isBaseOf(ClassDeclaration *cd, int *poffset);
 
     virtual int isBaseInfoComplete();
-    Dsymbol *search(Loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc, Identifier *ident, int flags = IgnoreNone);
     ClassDeclaration *searchBase(Loc, Identifier *ident);
-#if DMDV2
     int isFuncHidden(FuncDeclaration *fd);
-#endif
     FuncDeclaration *findFunc(Identifier *ident, TypeFunction *tf);
     void interfaceSemantic(Scope *sc);
     int isCOMclass();
     virtual int isCOMinterface();
-#if DMDV2
     int isCPPclass();
     virtual int isCPPinterface();
-#endif
     bool isAbstract();
     virtual int vtblOffset();
     const char *kind();
@@ -338,6 +322,7 @@ public:
     Symbol *vtblsym;
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class InterfaceDeclaration : public ClassDeclaration
@@ -351,15 +336,14 @@ public:
     const char *kind();
     int isBaseInfoComplete();
     int vtblOffset();
-#if DMDV2
     int isCPPinterface();
-#endif
     virtual int isCOMinterface();
 
     void toObjFile(int multiobj);                       // compile to .obj file
     Symbol *toSymbol();
 
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 #endif /* DMD_AGGREGATE_H */

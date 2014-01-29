@@ -195,6 +195,18 @@ void testsizes()
 
 ///////////////////////
 
+size_t cond11565(size_t val)
+{
+    return val ? size_t.max : 0;
+}
+
+void test11565()
+{
+    assert(cond11565(true) == size_t.max);
+}
+
+///////////////////////
+
 int array1[3] = [1:1,2,0:3];
 
 void testarrayinit()
@@ -729,6 +741,25 @@ void testdocond()
 
 ////////////////////////////////////////////////////////////////////////
 
+struct S8658
+{
+    int[16385] a;
+}
+
+void foo8658(S8658 s)
+{
+    int x;
+}
+
+void test8658()
+{
+    S8658 s;
+    for(int i = 0; i < 1000; i++)
+        foo8658(s);
+}
+
+////////////////////////////////////////////////////////////////////////
+
 uint neg(uint i)
 {
     return ~i + 1;
@@ -906,6 +937,18 @@ void testandand()
 
 ////////////////////////////////////////////////////////////////////////
 
+bool bittest11508(char c)
+{
+    return c=='_' || c=='-' || c=='+' || c=='.';
+}
+
+void testbittest()
+{
+    assert(bittest11508('_'));
+}
+
+////////////////////////////////////////////////////////////////////////
+
 uint or1(ubyte x)
 {
     return x | (x<<8) | (x<<16) | (x<<24) | (x * 3);
@@ -1005,6 +1048,14 @@ void test7565()
 }
 
 ////////////////////////////////////////////////////////////////////////
+
+int bug8525(int[] devt)
+{
+    return devt[$ - 1];
+}
+
+
+////////////////////////////////////////////////////////////////////////
  
 int main()
 {
@@ -1018,10 +1069,13 @@ int main()
     testarrayinit();
     testU();
     testulldiv();
+    testbittest();
+    test8658();
     testfastudiv();
     testfastdiv();
     testdocond();
     testnegcom();
+    test11565();
     testoror();
     testbt();
     testandand();

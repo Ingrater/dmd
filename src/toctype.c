@@ -147,17 +147,19 @@ type *TypeStruct::toCtype()
                 break;
             case MODconst:
             case MODwild:
+            case MODwildconst:
                 t->Tty |= mTYconst;
-                break;
-            case MODimmutable:
-                t->Tty |= mTYimmutable;
                 break;
             case MODshared:
                 t->Tty |= mTYshared;
                 break;
-            case MODshared | MODwild:
             case MODshared | MODconst:
+            case MODshared | MODwild:
+            case MODshared | MODwildconst:
                 t->Tty |= mTYshared | mTYconst;
+                break;
+            case MODimmutable:
+                t->Tty |= mTYimmutable;
                 break;
             default:
                 assert(0);
@@ -216,17 +218,19 @@ type *TypeEnum::toCtype()
                 break;
             case MODconst:
             case MODwild:
+            case MODwildconst:
                 t->Tty |= mTYconst;
-                break;
-            case MODimmutable:
-                t->Tty |= mTYimmutable;
                 break;
             case MODshared:
                 t->Tty |= mTYshared;
                 break;
-            case MODshared | MODwild:
             case MODshared | MODconst:
+            case MODshared | MODwild:
+            case MODshared | MODwildconst:
                 t->Tty |= mTYshared | mTYconst;
+                break;
+            case MODimmutable:
+                t->Tty |= mTYimmutable;
                 break;
             default:
                 assert(0);
@@ -277,11 +281,13 @@ type *TypeClass::toCtype()
      * (after setting ctype to avoid infinite recursion)
      */
     if (global.params.symdebug)
+    {
         for (size_t i = 0; i < sym->fields.dim; i++)
-        {   VarDeclaration *v = sym->fields[i];
-
+        {
+            VarDeclaration *v = sym->fields[i];
             symbol_struct_addField(t->Ttag, v->ident->toChars(), v->type->toCtype(), v->offset);
         }
+    }
 
     return ctype;
 }

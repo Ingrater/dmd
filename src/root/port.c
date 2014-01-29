@@ -1,4 +1,3 @@
-
 // Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
@@ -432,10 +431,10 @@ longdouble Port::strtold(const char *p, char **endp)
 
 #endif
 
-#if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__
+#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__
 
 #include <math.h>
-#if linux
+#if __linux__
 #include <bits/nan.h>
 #include <bits/mathdef.h>
 #endif
@@ -515,7 +514,7 @@ int Port::isNan(double r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __OpenBSD__
+#elif __FreeBSD__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -531,7 +530,7 @@ int Port::isNan(longdouble r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __OpenBSD__
+#elif __FreeBSD__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -559,7 +558,7 @@ int Port::isInfinity(double r)
 {
 #if __APPLE__
     return fpclassify(r) == FP_INFINITE;
-#elif __OpenBSD__
+#elif __FreeBSD__ || __OpenBSD__
     return isinf(r);
 #else
     #undef isinf

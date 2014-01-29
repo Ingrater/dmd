@@ -76,6 +76,7 @@ FuncDeclaration *AggregateDeclaration::hasIdentityOpAssign(Scope *sc)
         unsigned oldspec = global.speculativeGag;   // template opAssign fbody makes it.
         global.speculativeGag = global.gag;
         sc = sc->push();
+        sc->tinst = NULL;
         sc->speculative = true;
 
         for (size_t i = 0; i < 2; i++)
@@ -130,9 +131,7 @@ int StructDeclaration::needOpAssign()
      */
     for (size_t i = 0; i < fields.dim; i++)
     {
-        Dsymbol *s = fields[i];
-        VarDeclaration *v = s->isVarDeclaration();
-        assert(v && v->isField());
+        VarDeclaration *v = fields[i];
         if (v->storage_class & STCref)
             continue;
         Type *tv = v->type->baseElemOf();
@@ -196,15 +195,17 @@ FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
     if (dtor || postblit)
     {
         if (dtor)
+        {
             stc = mergeFuncAttrs(stc, dtor->storage_class);
+            if (stc & STCsafe)
+                stc = (stc & ~STCsafe) | STCtrusted;
+        }
     }
     else
     {
         for (size_t i = 0; i < fields.dim; i++)
         {
-            Dsymbol *s = fields[i];
-            VarDeclaration *v = s->isVarDeclaration();
-            assert(v && v->isField());
+            VarDeclaration *v = fields[i];
             if (v->storage_class & STCref)
                 continue;
             Type *tv = v->type->baseElemOf();
@@ -241,7 +242,7 @@ FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
         {
             tmp = new VarDeclaration(loc, type, idtmp, new VoidInitializer(loc));
             tmp->noscope = 1;
-            tmp->storage_class |= STCctfe;
+            tmp->storage_class |= STCtemp | STCctfe;
             e = new DeclarationExp(loc, tmp);
             ec = new AssignExp(loc,
                 new VarExp(loc, tmp),
@@ -272,9 +273,7 @@ FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
         //printf("\tmemberwise copy\n");
         for (size_t i = 0; i < fields.dim; i++)
         {
-            Dsymbol *s = fields[i];
-            VarDeclaration *v = s->isVarDeclaration();
-            assert(v && v->isField());
+            VarDeclaration *v = fields[i];
             // this.v = s.v;
             AssignExp *ec = new AssignExp(loc,
                 new DotVarExp(loc, new ThisExp(loc), v, 0),
@@ -305,7 +304,7 @@ FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
         Dsymbols *decldefs = new Dsymbols();
         decldefs->push(s);
         TemplateDeclaration *tempdecl =
-            new TemplateDeclaration(assign->loc, fop->ident, tpl, NULL, decldefs, 0);
+            new TemplateDeclaration(assign->loc, fop->ident, tpl, NULL, decldefs);
         s = tempdecl;
     }
 #endif
@@ -360,9 +359,7 @@ int StructDeclaration::needOpEquals()
      */
     for (size_t i = 0; i < fields.dim; i++)
     {
-        Dsymbol *s = fields[i];
-        VarDeclaration *v = s->isVarDeclaration();
-        assert(v && v->isField());
+        VarDeclaration *v = fields[i];
         if (v->storage_class & STCref)
             continue;
         Type *tv = v->type->toBasetype();
@@ -419,6 +416,7 @@ FuncDeclaration *AggregateDeclaration::hasIdentityOpEquals(Scope *sc)
             unsigned oldspec = global.speculativeGag;   // template opAssign fbody makes it.
             global.speculativeGag = global.gag;
             sc = sc->push();
+            sc->tinst = NULL;
             sc->speculative = true;
 
             for (size_t j = 0; j < 2; j++)
@@ -483,7 +481,7 @@ FuncDeclaration *StructDeclaration::buildXopEquals(Scope *sc)
         {
             TypeFunction *tfeqptr;
             {
-                Scope sc;
+                Scope scx;
 
                 /* const bool opEquals(ref const S s);
                  */
@@ -491,7 +489,7 @@ FuncDeclaration *StructDeclaration::buildXopEquals(Scope *sc)
                 parameters->push(new Parameter(STCref | STCconst, type, NULL, NULL));
                 tfeqptr = new TypeFunction(parameters, Type::tbool, 0, LINKd);
                 tfeqptr->mod = MODconst;
-                tfeqptr = (TypeFunction *)tfeqptr->semantic(Loc(), &sc);
+                tfeqptr = (TypeFunction *)tfeqptr->semantic(Loc(), &scx);
             }
             fd = fd->overloadExactMatch(tfeqptr);
             if (fd)
@@ -501,6 +499,7 @@ FuncDeclaration *StructDeclaration::buildXopEquals(Scope *sc)
 
     if (!xerreq)
     {
+        // object._xopEquals
         Identifier *id = Lexer::idPool("_xopEquals");
         Expression *e = new IdentifierExp(loc, Id::empty);
         e = new DotIdExp(loc, e, Id::object);
@@ -525,7 +524,7 @@ FuncDeclaration *StructDeclaration::buildXopEquals(Scope *sc)
     TypeFunction *tf = new TypeFunction(parameters, Type::tbool, 0, LINKd);
     tf = (TypeFunction *)tf->semantic(loc, sc);
 
-    Identifier *id = Lexer::idPool("__xopEquals");
+    Identifier *id = Id::xopEquals;
     FuncDeclaration *fop = new FuncDeclaration(declLoc, Loc(), id, STCstatic, tf);
 
     Expression *e1 = new IdentifierExp(loc, Id::p);
@@ -569,7 +568,7 @@ FuncDeclaration *StructDeclaration::buildXopCmp(Scope *sc)
         {
             TypeFunction *tfcmpptr;
             {
-                Scope sc;
+                Scope scx;
 
                 /* const int opCmp(ref const S s);
                  */
@@ -577,7 +576,7 @@ FuncDeclaration *StructDeclaration::buildXopCmp(Scope *sc)
                 parameters->push(new Parameter(STCref | STCconst, type, NULL, NULL));
                 tfcmpptr = new TypeFunction(parameters, Type::tint32, 0, LINKd);
                 tfcmpptr->mod = MODconst;
-                tfcmpptr = (TypeFunction *)tfcmpptr->semantic(Loc(), &sc);
+                tfcmpptr = (TypeFunction *)tfcmpptr->semantic(Loc(), &scx);
             }
             fd = fd->overloadExactMatch(tfcmpptr);
             if (fd)
@@ -627,6 +626,7 @@ FuncDeclaration *StructDeclaration::buildXopCmp(Scope *sc)
 
     if (!xerrcmp)
     {
+        // object._xopCmp
         Identifier *id = Lexer::idPool("_xopCmp");
         Expression *e = new IdentifierExp(loc, Id::empty);
         e = new DotIdExp(loc, e, Id::object);
@@ -651,7 +651,7 @@ FuncDeclaration *StructDeclaration::buildXopCmp(Scope *sc)
     TypeFunction *tf = new TypeFunction(parameters, Type::tint32, 0, LINKd);
     tf = (TypeFunction *)tf->semantic(loc, sc);
 
-    Identifier *id = Lexer::idPool("__xopCmp");
+    Identifier *id = Id::xopCmp;
     FuncDeclaration *fop = new FuncDeclaration(declLoc, Loc(), id, STCstatic, tf);
 
     Expression *e1 = new IdentifierExp(loc, Id::p);
@@ -758,7 +758,6 @@ FuncDeclaration *StructDeclaration::buildCpCtor(Scope *sc)
  * and the ordering changes (runs forward instead of backwards).
  */
 
-#if DMDV2
 FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
 {
     //printf("StructDeclaration::buildPostBlit() %s\n", toChars());
@@ -769,9 +768,7 @@ FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
     Expression *e = NULL;
     for (size_t i = 0; i < fields.dim; i++)
     {
-        Dsymbol *s = fields[i];
-        VarDeclaration *v = s->isVarDeclaration();
-        assert(v && v->isField());
+        VarDeclaration *v = fields[i];
         if (v->storage_class & STCref)
             continue;
         Type *tv = v->type->toBasetype();
@@ -864,8 +861,6 @@ FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
     }
 }
 
-#endif
-
 /*****************************************
  * Create inclusive destructor for struct/class by aggregating
  * all the destructors in dtors[] with the destructors for
@@ -882,12 +877,9 @@ FuncDeclaration *AggregateDeclaration::buildDtor(Scope *sc)
     Loc loc = Loc();    // internal code should have no loc to prevent coverage
 
     Expression *e = NULL;
-#if DMDV2
     for (size_t i = 0; i < fields.dim; i++)
     {
-        Dsymbol *s = fields[i];
-        VarDeclaration *v = s->isVarDeclaration();
-        assert(v && v->isField());
+        VarDeclaration *v = fields[i];
         if (v->storage_class & STCref)
             continue;
         Type *tv = v->type->toBasetype();
@@ -946,7 +938,6 @@ FuncDeclaration *AggregateDeclaration::buildDtor(Scope *sc)
         members->push(dd);
         dd->semantic(sc);
     }
-#endif
 
     switch (dtors.dim)
     {

@@ -125,7 +125,7 @@ dt_t *ArrayInitializer::toDt()
             tadim = ta->dim->toInteger();
             if (dim < tadim)
             {
-                if (edefault->isBool(FALSE))
+                if (edefault->isBool(false))
                     // pad out end of array
                     pdtend = dtnzeros(pdtend, size * (tadim - dim));
                 else
@@ -618,7 +618,6 @@ void ClassDeclaration::toDt2(dt_t **pdt, ClassDeclaration *cd)
     for (size_t i = 0; i < vtblInterfaces->dim; i++)
     {   BaseClass *b = (*vtblInterfaces)[i];
 
-#if 1 || INTERFACE_VIRTUAL
         for (ClassDeclaration *cd2 = cd; 1; cd2 = cd2->baseClass)
         {
             assert(cd2);
@@ -631,11 +630,6 @@ void ClassDeclaration::toDt2(dt_t **pdt, ClassDeclaration *cd)
                 break;
             }
         }
-#else
-        csymoffset = baseVtblOffset(b);
-        assert(csymoffset != ~0);
-        dtxoff(pdt, csym, csymoffset);
-#endif
         offset = b->offset + Target::ptrsize;
     }
 
@@ -648,14 +642,13 @@ void ClassDeclaration::toDt2(dt_t **pdt, ClassDeclaration *cd)
 void StructDeclaration::toDt(dt_t **pdt)
 {
     //printf("StructDeclaration::toDt(), this='%s'\n", toChars());
-    StructLiteralExp *sle = new StructLiteralExp(loc, this, NULL);
-    Expression *e = sle->fill(true);
-    if (e == sle)
-    {
-        //printf("sd->toDt sle = %s\n", sle->toChars());
-        sle->type = type;
-        sle->toDt(pdt);
-    }
+    StructLiteralExp *sle = StructLiteralExp::create(loc, this, NULL);
+    if (!fill(loc, sle->elements, true))
+        assert(0);
+
+    //printf("sd->toDt sle = %s\n", sle->toChars());
+    sle->type = type;
+    sle->toDt(pdt);
 }
 
 /* ================================================================= */
@@ -665,6 +658,12 @@ dt_t **Type::toDt(dt_t **pdt)
     //printf("Type::toDt()\n");
     Expression *e = defaultInit();
     return e->toDt(pdt);
+}
+
+dt_t **TypeVector::toDt(dt_t **pdt)
+{
+    assert(basetype->ty == Tsarray);
+    return ((TypeSArray *)basetype)->toDtElem(pdt, NULL);
 }
 
 dt_t **TypeSArray::toDt(dt_t **pdt)
@@ -907,7 +906,6 @@ dt_t **ClassReferenceExp::toDt2(dt_t **pdt, ClassDeclaration *cd, Dts *dts)
     for (size_t i = 0; i < cd->vtblInterfaces->dim; i++)
     {   BaseClass *b = (*cd->vtblInterfaces)[i];
 
-#if 1 || INTERFACE_VIRTUAL
         for (ClassDeclaration *cd2 = originalClass(); 1; cd2 = cd2->baseClass)
         {
             assert(cd2);
@@ -920,11 +918,6 @@ dt_t **ClassReferenceExp::toDt2(dt_t **pdt, ClassDeclaration *cd, Dts *dts)
                 break;
             }
         }
-#else
-        csymoffset = baseVtblOffset(b);
-        assert(csymoffset != ~0);
-        dtxoff(pdt, csym, csymoffset);
-#endif
         offset = b->offset + Target::ptrsize;
     }
 

@@ -17,6 +17,7 @@ int Target::ptrsize;
 int Target::realsize;
 int Target::realpad;
 int Target::realalignsize;
+bool Target::reverseCppOverloads;
 
 
 void Target::init()
@@ -43,6 +44,7 @@ void Target::init()
         realsize = 10;
         realpad = 0;
         realalignsize = 2;
+        reverseCppOverloads = !global.params.is64bit;
     }
     else
         assert(0);
@@ -95,7 +97,7 @@ unsigned Target::alignsize(Type* type)
         default:
             break;
     }
-    return type->size(Loc());
+    return (unsigned)type->size(Loc());
 }
 
 /******************************

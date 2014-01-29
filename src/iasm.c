@@ -2450,11 +2450,8 @@ STATIC void asm_merge_symbol(OPND *o1, Dsymbol *s)
             o1->disp += v->offset;
             goto L2;
         }
-        if ((v->isConst()
-#if DMDV2
-                || v->isImmutable() || v->storage_class & STCmanifest
-#endif
-            ) && !v->type->isfloating() && v->init)
+        if ((v->isConst() || v->isImmutable() || v->storage_class & STCmanifest) &&
+            !v->type->isfloating() && v->init)
         {   ExpInitializer *ei = v->init->isExpInitializer();
 
             if (ei)
@@ -3673,7 +3670,7 @@ STATIC code *asm_db_parse(OP *pop)
 
             case TOKidentifier:
             {
-                Expression *e = new IdentifierExp(asmstate.loc, asmtok->ident);
+                Expression *e = IdentifierExp::create(asmstate.loc, asmtok->ident);
                 Scope *sc = asmstate.sc->startCTFE();
                 e = e->semantic(sc);
                 sc->endCTFE();
@@ -3750,7 +3747,7 @@ int asm_getnum()
 
         case TOKidentifier:
         {
-            Expression *e = new IdentifierExp(asmstate.loc, asmtok->ident);
+            Expression *e = IdentifierExp::create(asmstate.loc, asmtok->ident);
             Scope *sc = asmstate.sc->startCTFE();
             e = e->semantic(sc);
             sc->endCTFE();
@@ -4452,13 +4449,13 @@ STATIC OPND *asm_primary_exp()
                     {   Expression *e;
                         VarExp *v;
 
-                        e = new IdentifierExp(asmstate.loc, id);
+                        e = IdentifierExp::create(asmstate.loc, id);
                         while (1)
                         {
                             asm_token();
                             if (tok_value == TOKidentifier)
                             {
-                                e = new DotIdExp(asmstate.loc, e, asmtok->ident);
+                                e = DotIdExp::create(asmstate.loc, e, asmtok->ident);
                                 asm_token();
                                 if (tok_value != TOKdot)
                                     break;
@@ -4689,10 +4686,8 @@ Statement *AsmStatement::semantic(Scope *sc)
     //printf("AsmStatement::semantic()\n");
 
     assert(sc->func);
-#if DMDV2
     if (sc->func->setUnsafe())
         error("inline assembler not allowed in @safe function %s", sc->func->toChars());
-#endif
 
     OP *o;
     OPND *o1 = NULL,*o2 = NULL, *o3 = NULL, *o4 = NULL;
@@ -4703,9 +4698,6 @@ Statement *AsmStatement::semantic(Scope *sc)
     FuncDeclaration *fd = sc->parent->isFuncDeclaration();
 
     assert(fd);
-#if DMDV1
-    fd->inlineAsm = 1;
-#endif
 
     if (!tokens)
         return NULL;
@@ -4733,8 +4725,8 @@ Statement *AsmStatement::semantic(Scope *sc)
     {
         asmstate.bInit = TRUE;
         init_optab();
-        asmstate.psDollar = new LabelDsymbol(Id::__dollar);
-        asmstate.psLocalsize = new Dsymbol(Id::__LOCAL_SIZE);
+        asmstate.psDollar = LabelDsymbol::create(Id::__dollar);
+        asmstate.psLocalsize = Dsymbol::create(Id::__LOCAL_SIZE);
     }
 
     asmstate.loc = loc;
