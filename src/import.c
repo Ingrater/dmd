@@ -291,7 +291,7 @@ void Import::semantic(Scope *sc)
          */
 
         OutBuffer *ob = global.params.moduleDeps;
-        Module* imod = sc->instantiatingModule ? sc->instantiatingModule : sc->module;
+        Module* imod = sc->instantiatingModule();
         if (!global.params.moduleDepsFile)
             ob->writestring("depsImport ");
         ob->writestring(imod->toPrettyChars());
@@ -321,14 +321,14 @@ void Import::semantic(Scope *sc)
             escapePath(ob, mod->srcfile->toChars());
         else
             ob->writestring("???");
-        ob->writebyte(')');
+        ob->writeByte(')');
 
         for (size_t i = 0; i < names.dim; i++)
         {
             if (i == 0)
-                ob->writebyte(':');
+                ob->writeByte(':');
             else
-                ob->writebyte(',');
+                ob->writeByte(',');
 
             Identifier *name = names[i];
             Identifier *alias = aliases[i];

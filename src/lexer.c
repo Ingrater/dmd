@@ -175,11 +175,29 @@ const char *Token::toChars()
             }
             buf.writeByte('"');
             if (postfix)
-                buf.writeByte('"');
-            buf.writeByte(0);
-            p = (char *)buf.extractData();
+                buf.writeByte(postfix);
+            p = buf.extractString();
         }
             break;
+
+        case TOKxstring:
+        {
+            OutBuffer buf;
+            buf.writeByte('x');
+            buf.writeByte('"');
+            for (size_t i = 0; i < len; i++)
+            {
+                if (i)
+                    buf.writeByte(' ');
+                buf.printf("%02x", ustring[i]);
+            }
+            buf.writeByte('"');
+            if (postfix)
+                buf.writeByte(postfix);
+            buf.writeByte(0);
+            p = (char *)buf.extractData();
+            break;
+        }
 
         case TOKidentifier:
         case TOKenum:
@@ -1401,7 +1419,7 @@ TOK Lexer::hexStringConstant(Token *t)
                 t->ustring = (utf8_t *)"";
                 t->len = 0;
                 t->postfix = 0;
-                return TOKstring;
+                return TOKxstring;
 
             case '"':
                 if (n & 1)
@@ -1413,7 +1431,7 @@ TOK Lexer::hexStringConstant(Token *t)
                 t->ustring = (utf8_t *)mem.malloc(stringbuffer.offset);
                 memcpy(t->ustring, stringbuffer.data, stringbuffer.offset);
                 stringPostfix(t);
-                return TOKstring;
+                return TOKxstring;
 
             default:
                 if (c >= '0' && c <= '9')

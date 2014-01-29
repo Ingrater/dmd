@@ -22,6 +22,8 @@
 #include "scope.h"
 #include "id.h"
 
+bool isCommutative(Expression *e);
+
 /* ==================== implicitCast ====================== */
 
 /**************************************
@@ -606,27 +608,6 @@ MATCH AssocArrayLiteralExp::implicitConvTo(Type *t)
     }
     else
         return Expression::implicitConvTo(t);
-}
-
-Expression *CallExp::implicitCastTo(Scope *sc, Type *t)
-{
-    //printf("CallExp::implicitCastTo(%s of type %s) => %s\n", toChars(), type->toChars(), t->toChars());
-
-    /* Allow the result of strongly pure functions to
-     * convert to immutable
-     */
-    if (f && f->isolateReturn() &&
-        type->immutableOf()->equals(t->immutableOf()))
-    {
-        /* Avoid emitting CastExp for:
-         *  T[] make() pure { ...  }
-         *  immutable T[] arr = make();  // unique return
-         */
-        Expression *e = copy();
-        e->type = t;
-        return e;
-    }
-    return Expression::implicitCastTo(sc, t);
 }
 
 MATCH CallExp::implicitConvTo(Type *t)
@@ -2163,7 +2144,7 @@ bool isVoidArrayLiteral(Expression *e, Type *other)
 int typeMerge(Scope *sc, Expression *e, Type **pt, Expression **pe1, Expression **pe2)
 {
     //printf("typeMerge() %s op %s\n", (*pe1)->toChars(), (*pe2)->toChars());
-    //e->dump(0);
+    //e->print();
 
     MATCH m;
     Expression *e1 = *pe1;
@@ -2230,7 +2211,7 @@ Lagain:
         e1 = e1->castTo(sc, t1);
         e2 = e2->castTo(sc, t2);
         //printf("after typeCombine():\n");
-        //dump(0);
+        //print();
         //printf("ty = %d, ty1 = %d, ty2 = %d\n", ty, ty1, ty2);
         goto Lret;
     }
@@ -2701,7 +2682,7 @@ Lcc:
 
         //printf("test %s\n", e->toChars());
         e1 = e1->optimize(WANTvalue);
-        if (e && e->isCommutative() && e1->isConst())
+        if (e && isCommutative(e) && e1->isConst())
         {   /* Swap operands to minimize number of functions generated
              */
             //printf("swap %s\n", e->toChars());
@@ -2726,7 +2707,7 @@ Lret:
     if (e2->type) printf("\tt2 = %s\n", e2->type->toChars());
     printf("\ttype = %s\n", t->toChars());
 #endif
-    //dump(0);
+    //print();
     return 1;
 
 

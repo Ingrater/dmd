@@ -26,6 +26,7 @@
 #include "hdrgen.h"
 #include "target.h"
 #include "parse.h"
+#include "rmem.h"
 
 void functionToCBuffer2(TypeFunction *t, OutBuffer *buf, HdrGenState *hgs, int mod, const char *kind);
 void genCmain(Scope *sc);
@@ -261,7 +262,7 @@ void FuncDeclaration::semantic(Scope *sc)
         {
             OutBuffer buf;
             MODtoBuffer(&buf, tf->mod);
-            error("without 'this' cannot be %s", buf.toChars());
+            error("without 'this' cannot be %s", buf.peekString());
             tf->mod = 0;    // remove qualifiers
         }
 
@@ -2061,9 +2062,9 @@ void FuncDeclaration::bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs)
             buf->writestring("out");
             if (outId)
             {
-                buf->writebyte('(');
+                buf->writeByte('(');
                 buf->writestring(outId->toChars());
-                buf->writebyte(')');
+                buf->writeByte(')');
             }
             buf->writenl();
             fensure->toCBuffer(buf, hgs);
@@ -2075,12 +2076,12 @@ void FuncDeclaration::bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs)
             buf->writenl();
         }
 
-        buf->writebyte('{');
+        buf->writeByte('{');
         buf->writenl();
         buf->level++;
         fbody->toCBuffer(buf, hgs);
         buf->level--;
-        buf->writebyte('}');
+        buf->writeByte('}');
         buf->writenl();
 
         hgs->tpltMember = savetlpt;
@@ -2832,7 +2833,7 @@ Lerror:
         {
             ::error(loc, "%s %s.%s cannot deduce function from argument types !(%s)%s, candidates are:",
                     td->kind(), td->parent->toPrettyChars(), td->ident->toChars(),
-                    tiargsBuf.toChars(), fargsBuf.toChars());
+                    tiargsBuf.peekString(), fargsBuf.peekString());
 
             // Display candidate template functions
             int numToDisplay = 5; // sensible number to display
@@ -2862,7 +2863,7 @@ Lerror:
                 MODMatchToBuffer(&thisBuf, tthis->mod, tf->mod);
                 MODMatchToBuffer(&funcBuf, tf->mod, tthis->mod);
                 ::error(loc, "%smethod %s is not callable using a %sobject",
-                    funcBuf.toChars(), fd->toPrettyChars(), thisBuf.toChars());
+                    funcBuf.peekString(), fd->toPrettyChars(), thisBuf.peekString());
             }
             else
             {
@@ -2870,32 +2871,22 @@ Lerror:
                 fd->error(loc, "%s%s is not callable using argument types %s",
                     Parameter::argsTypesToChars(tf->parameters, tf->varargs),
                     tf->modToChars(),
-                    fargsBuf.toChars());
+                    fargsBuf.peekString());
             }
         }
     }
     else if (m.nextf)
     {
-        /* CAUTION: m.lastf and m.nextf might be incompletely instantiated functions
-         * (created by doHeaderInstantiation), so call toPrettyChars will segfault.
-         */
-        assert(m.lastf);
-        TypeFunction *t1 = (TypeFunction *)m.lastf->type;
-        TypeFunction *t2 = (TypeFunction *)m.nextf->type;
-        TemplateInstance *lastti = m.lastf->parent->isTemplateInstance();
-        TemplateInstance *nextti = m.nextf->parent->isTemplateInstance();
-        if (lastti && lastti->name != m.lastf->ident) lastti = NULL;
-        if (nextti && nextti->name != m.nextf->ident) nextti = NULL;
-        Dsymbol *lasts = lastti ? (Dsymbol *)lastti->tempdecl : (Dsymbol *)m.lastf;
-        Dsymbol *nexts = nextti ? (Dsymbol *)nextti->tempdecl : (Dsymbol *)m.nextf;
-        const char *lastprms = lastti ? "" : Parameter::argsTypesToChars(t1->parameters, t1->varargs);
-        const char *nextprms = nextti ? "" : Parameter::argsTypesToChars(t2->parameters, t2->varargs);
+        TypeFunction *tf1 = (TypeFunction *)m.lastf->type;
+        TypeFunction *tf2 = (TypeFunction *)m.nextf->type;
+        const char *lastprms = Parameter::argsTypesToChars(tf1->parameters, tf1->varargs);
+        const char *nextprms = Parameter::argsTypesToChars(tf2->parameters, tf2->varargs);
         ::error(loc, "%s.%s called with argument types %s matches both:\n"
                      "\t%s(%d): %s%s\nand:\n\t%s(%d): %s%s",
                 s->parent->toPrettyChars(), s->ident->toChars(),
-                fargsBuf.toChars(),
-                lasts->loc.filename, lasts->loc.linnum, lasts->toChars(), lastprms,
-                nexts->loc.filename, nexts->loc.linnum, nexts->toChars(), nextprms);
+                fargsBuf.peekString(),
+                m.lastf->loc.filename, m.lastf->loc.linnum, m.lastf->toPrettyChars(), lastprms,
+                m.nextf->loc.filename, m.nextf->loc.linnum, m.nextf->toPrettyChars(), nextprms);
     }
     return NULL;
 }
@@ -3074,8 +3065,7 @@ const char *FuncDeclaration::toFullSignature()
     OutBuffer buf;
     HdrGenState hgs;
     functionToCBuffer2((TypeFunction *)type, &buf, &hgs, 0, toChars());
-    buf.writeByte(0);
-    return buf.extractData();
+    return buf.extractString();
 }
 
 bool FuncDeclaration::isMain()
@@ -3304,31 +3294,34 @@ Type *getIndirection(Type *t)
 }
 
 /**************************************
- * Traverse this and t, and then check the indirections convertibility.
+ * Returns true if memory reachable through a reference B to a value of type tb,
+ * which has been constructed with a reference A to a value of type ta
+ * available, can alias memory reachable from A based on the types involved
+ * (either directly or via any number of indirections).
+ *
+ * Note that this relation is not symmetric in the two arguments. For example,
+ * a const(int) reference can point to a pre-existing int, but not the other
+ * way round.
  */
-
-int traverseIndirections(Type *ta, Type *tb, void *p = NULL, bool a2b = true)
+bool traverseIndirections(Type *ta, Type *tb, void *p = NULL, bool reversePass = false)
 {
-    if (a2b)    // check ta appears in tb
+    Type *source = ta;
+    Type *target = tb;
+    if (reversePass)
     {
-        //printf("\ttraverse(1) %s appears in %s\n", ta->toChars(), tb->toChars());
-        if (ta->constConv(tb))
-            return 1;
-        else if (ta->immutableOf()->equals(tb->immutableOf()))
-            return 0;
-        else if (tb->ty == Tvoid && MODimplicitConv(ta->mod, tb->mod))
-            return 1;
+        source = tb;
+        target = ta;
     }
-    else    // check tb appears in ta
-    {
-        //printf("\ttraverse(2) %s appears in %s\n", tb->toChars(), ta->toChars());
-        if (tb->constConv(ta))
-            return 1;
-        else if (tb->immutableOf()->equals(ta->immutableOf()))
-            return 0;
-        else if (ta->ty == Tvoid && MODimplicitConv(tb->mod, ta->mod))
-            return 1;
-    }
+
+    if (source->constConv(target))
+        return true;
+    else if (target->ty == Tvoid && MODimplicitConv(source->mod, target->mod))
+        return true;
+
+    // No direct match, so try breaking up one of the types (starting with tb).
+    Type *tbb = tb->toBasetype()->baseElemOf();
+    if (tbb != tb)
+        return traverseIndirections(ta, tbb, p, reversePass);
 
     // context date to detect circular look up
     struct Ctxt
@@ -3338,15 +3331,10 @@ int traverseIndirections(Type *ta, Type *tb, void *p = NULL, bool a2b = true)
     };
     Ctxt *ctxt = (Ctxt *)p;
 
-    Type *tbb = tb->toBasetype();
-    if (tbb != tb)
-        return traverseIndirections(ta, tbb, ctxt, a2b);
-
-    tb = tb->baseElemOf();
     if (tb->ty == Tclass || tb->ty == Tstruct)
     {
         for (Ctxt *c = ctxt; c; c = c->prev)
-            if (tb == c->type) return 0;
+            if (tb == c->type) return false;
         Ctxt c;
         c.prev = ctxt;
         c.type = tb;
@@ -3356,31 +3344,28 @@ int traverseIndirections(Type *ta, Type *tb, void *p = NULL, bool a2b = true)
         {
             VarDeclaration *v = sym->fields[i];
             Type *tprmi = v->type->addMod(tb->mod);
-            if (!(v->storage_class & STCref))
-                tprmi = getIndirection(tprmi);
-            if (!tprmi)
-                continue;
-
             //printf("\ttb = %s, tprmi = %s\n", tb->toChars(), tprmi->toChars());
-            if (traverseIndirections(ta, tprmi, &c, a2b))
-                return 1;
+            if (traverseIndirections(ta, tprmi, &c, reversePass))
+                return true;
         }
     }
     else if (tb->ty == Tarray || tb->ty == Taarray || tb->ty == Tpointer)
     {
         Type *tind = tb->nextOf();
-        if (traverseIndirections(ta, tind, ctxt, a2b))
-            return 1;
+        if (traverseIndirections(ta, tind, ctxt, reversePass))
+            return true;
     }
     else if (tb->hasPointers())
     {
         // FIXME: function pointer/delegate types should be considered.
-        return 1;
+        return true;
     }
-    if (a2b)
-        return traverseIndirections(tb, ta, ctxt, false);
 
-    return 0;
+    // Still no match, so try breaking up ta if we have note done so yet.
+    if (!reversePass)
+        return traverseIndirections(tb, ta, ctxt, true);
+
+    return false;
 }
 
 /********************************************
@@ -3434,7 +3419,7 @@ bool FuncDeclaration::parametersIntersect(Type *t)
     }
     if (AggregateDeclaration *ad = isCtorDeclaration() ? NULL : isThis())
     {
-        Type *tthis = ad ? ad->getType()->addMod(tf->mod) : NULL;
+        Type *tthis = ad->getType()->addMod(tf->mod);
         //printf("\ttthis = %s\n", tthis->toChars());
         if (traverseIndirections(tthis, t))
             return false;
@@ -3811,8 +3796,15 @@ bool FuncDeclaration::needsCodegen()
 {
     assert(semanticRun == PASSsemantic3done);
 
-    if (!isInstantiated() && inNonRoot())
-        return false;
+    for (FuncDeclaration *fd = this; fd; )
+    {
+        if (!fd->isInstantiated() && fd->inNonRoot())
+            return false;
+        if (fd->isNested())
+            fd = fd->toParent2()->isFuncDeclaration();
+        else
+            break;
+    }
 
     if (global.params.useUnitTests ||
         global.params.allInst ||
@@ -4630,7 +4622,7 @@ static Identifier *unitTestId(Loc loc)
 {
     OutBuffer buf;
     buf.printf("__unittestL%u_", loc.linnum);
-    return Lexer::uniqueId(buf.toChars());
+    return Lexer::uniqueId(buf.peekString());
 }
 
 UnitTestDeclaration::UnitTestDeclaration(Loc loc, Loc endloc, char *codedoc)

@@ -48,6 +48,7 @@ void Statement_toIR(Statement *s, IRState *irs);
 typedef Array<symbol *> symbols;
 Dsymbols *Dsymbols_create();
 Expressions *Expressions_create();
+type *Type_toCtype(Type *t);
 
 elem *eictor;
 symbol *ictorlocalgot;
@@ -107,7 +108,7 @@ void obj_write_deferred(Library *library)
          */
         OutBuffer idbuf;
         idbuf.printf("%s.%d", m ? m->ident->toChars() : mname, count);
-        char *idstr = idbuf.toChars();
+        char *idstr = idbuf.peekString();
 
         if(!m)
         {
@@ -144,9 +145,8 @@ void obj_write_deferred(Library *library)
         for (char *p = s->toChars(); *p; p++)
             hash += *p;
         namebuf.printf("%s_%x_%x.%s", fname, count, hash, global.obj_ext);
-        namebuf.writeByte(0);
         FileName::free((char *)fname);
-        fname = (char *)namebuf.extractData();
+        fname = namebuf.extractString();
 
         //printf("writing '%s'\n", fname);
         File *objfile = File::create(fname);
@@ -567,6 +567,9 @@ void FuncDeclaration::toObjFile(int multiobj)
     if (semanticRun >= PASSobj) // if toObjFile() already run
         return;
 
+    if (type && type->ty == Tfunction && ((TypeFunction *)type)->next == NULL)
+        return;
+
     // If errors occurred compiling it, such as bugzilla 6118
     if (type && type->ty == Tfunction && ((TypeFunction *)type)->next->ty == Terror)
         return;
@@ -633,7 +636,7 @@ void FuncDeclaration::toObjFile(int multiobj)
     // tunnel type of "this" to debug info generation
     if (AggregateDeclaration* ad = func->parent->isAggregateDeclaration())
     {
-        ::type* t = ad->getType()->toCtype();
+        ::type* t = Type_toCtype(ad->getType());
         if(cd)
             t = t->Tnext; // skip reference
         f->Fclass = (Classsym *)t;
@@ -798,7 +801,7 @@ void FuncDeclaration::toObjFile(int multiobj)
     {
         // If function returns a struct, put a pointer to that
         // as the first argument
-        ::type *thidden = tf->next->pointerTo()->toCtype();
+        ::type *thidden = Type_toCtype(tf->next->pointerTo());
         char hiddenparam[5+4+1];
         static int hiddenparami;    // how many we've generated so far
 

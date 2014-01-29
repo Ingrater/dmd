@@ -2353,6 +2353,7 @@ Objects *Parser::parseTemplateArgument()
         case TOKwcharv:
         case TOKdcharv:
         case TOKstring:
+        case TOKxstring:
         case TOKfile:
         case TOKline:
         case TOKmodulestring:
@@ -3186,6 +3187,12 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, const utf8_t *co
             a = new Dsymbols();
             a->push(s);
         }
+        if (link != linkage)
+        {
+            s = new LinkDeclaration(link, a);
+            a = new Dsymbols();
+            a->push(s);
+        }
         if (udas)
         {
             s = new UserAttributeDeclaration(udas, a);
@@ -3513,7 +3520,7 @@ void Parser::parseContracts(FuncDeclaration *f)
 {
     LINK linksave = linkage;
 
-    bool literal = f->isFuncLiteralDeclaration();
+    bool literal = f->isFuncLiteralDeclaration() != NULL;
 
     // The following is irrelevant, as it is overridden by sc->linkage in
     // TypeFunction::semantic
@@ -3598,8 +3605,8 @@ L1:
         default:
             if (literal)
             {
-                error("missing %s{ ... } for function literal",
-                    (f->frequire || f->fensure) ? "body " : "");
+                const char *sbody = (f->frequire || f->fensure) ? "body " : "";
+                error("missing %s{ ... } for function literal", sbody);
             }
             else if (!f->frequire && !f->fensure)   // allow these even with no body
             {
@@ -3962,6 +3969,7 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
         case TOKtrue:
         case TOKfalse:
         case TOKstring:
+        case TOKxstring:
         case TOKlparen:
         case TOKcast:
         case TOKmul:
@@ -5165,6 +5173,7 @@ int Parser::isBasicType(Token **pt)
                         case TOKwcharv:
                         case TOKdcharv:
                         case TOKstring:
+                        case TOKxstring:
                         case TOKfile:
                         case TOKline:
                         case TOKmodulestring:
@@ -5918,6 +5927,7 @@ Expression *Parser::parsePrimaryExp()
             break;
 
         case TOKstring:
+        case TOKxstring:
         {
             // cat adjacent strings
             utf8_t *s = token.ustring;
@@ -5926,7 +5936,8 @@ Expression *Parser::parsePrimaryExp()
             while (1)
             {
                 nextToken();
-                if (token.value == TOKstring)
+                if (token.value == TOKstring ||
+                    token.value == TOKxstring)
                 {
                     if (token.postfix)
                     {   if (token.postfix != postfix)

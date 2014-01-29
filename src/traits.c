@@ -429,7 +429,7 @@ Expression *TraitsExp::semantic(Scope *sc)
             goto Lfalse;
         }
         e = e->ctfeInterpret();
-        StringExp *se = e->toString();
+        StringExp *se = e->toStringExp();
         if (!se || se->length() == 0)
         {   error("string expected as second argument of __traits %s instead of %s", ident->toChars(), e->toChars());
             goto Lfalse;
@@ -493,7 +493,7 @@ Expression *TraitsExp::semantic(Scope *sc)
 
             /* Create tuple of functions of e
              */
-            //e->dump(0);
+            //e->print();
             Expressions *exps = new Expressions();
             FuncDeclaration *f;
             if (e->op == TOKvar)

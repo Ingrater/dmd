@@ -1293,7 +1293,9 @@ Type *Type::aliasthisOf()
             else if (d->isFuncDeclaration())
             {
                 FuncDeclaration *fd = resolveFuncCall(Loc(), NULL, d, NULL, this, NULL, 1);
-                if (fd && fd->functionSemantic())
+                if (fd && !fd->type->nextOf() && !fd->functionSemantic())
+                    fd = NULL;
+                if (fd)
                 {
                     t = fd->type->nextOf();
                     t = t->substWildTo(mod == 0 ? MODmutable : mod);
@@ -1546,8 +1548,7 @@ char *MODtoChars(unsigned char mod)
     OutBuffer buf;
     buf.reserve(16);
     MODtoBuffer(&buf, mod);
-    buf.writebyte(0);
-    return buf.extractData();
+    return buf.extractString();
 }
 
 /********************************
@@ -1576,8 +1577,7 @@ char *Type::toChars()
     HdrGenState hgs;
 
     toCBuffer(&buf, NULL, &hgs);
-    buf.writebyte(0);
-    return buf.extractData();
+    return buf.extractString();
 }
 
 void Type::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs)
@@ -1652,8 +1652,7 @@ char *Type::modToChars()
     OutBuffer buf;
     buf.reserve(16);
     modToBuffer(&buf);
-    buf.writebyte(0);
-    return buf.extractData();
+    return buf.extractString();
 }
 
 /************************************
@@ -1971,7 +1970,7 @@ MATCH Type::constConv(Type *to)
  * Return MOD bits matching this type to wild parameter type (tprm).
  */
 
-unsigned Type::deduceWild(Type *t, bool isRef)
+unsigned char Type::deduceWild(Type *t, bool isRef)
 {
     //printf("Type::deduceWild this = '%s', tprm = '%s'\n", toChars(), tprm->toChars());
 
@@ -2879,12 +2878,12 @@ MATCH TypeNext::constConv(Type *to)
     return m;
 }
 
-unsigned TypeNext::deduceWild(Type *t, bool isRef)
+unsigned char TypeNext::deduceWild(Type *t, bool isRef)
 {
     if (ty == Tfunction)
         return 0;
 
-    unsigned wm;
+    unsigned char wm;
 
     Type *tn = t->nextOf();
     if (!isRef && (ty == Tarray || ty == Tpointer) && tn)
@@ -4909,8 +4908,11 @@ StructDeclaration *TypeAArray::getImpl()
         TemplateInstance *ti = dti->ti;
 #endif
         // Instantiate on the root module of import dependency graph.
-        Scope *scx = sc->push(sc->module->importedFrom);
-        scx->instantiatingModule = sc->module->importedFrom;
+        Module *mi = sc->module->importedFrom;
+        Scope *scx = sc->push(mi);
+        scx->module = mi;
+        scx->tinst = NULL;
+        assert(scx->instantiatingModule() == mi);
         ti->semantic(scx);
         ti->semantic2(scx);
         ti->semantic3(scx);
@@ -6205,7 +6207,7 @@ MATCH TypeFunction::callMatch(Type *tthis, Expressions *args, int flag)
 {
     //printf("TypeFunction::callMatch() %s\n", toChars());
     MATCH match = MATCHexact;           // assume exact match
-    unsigned wildmatch = 0;
+    unsigned char wildmatch = 0;
 
     if (tthis)
     {   Type *t = tthis;
@@ -8720,12 +8722,12 @@ MATCH TypeStruct::constConv(Type *to)
     return MATCHnomatch;
 }
 
-unsigned TypeStruct::deduceWild(Type *t, bool isRef)
+unsigned char TypeStruct::deduceWild(Type *t, bool isRef)
 {
     if (ty == t->ty && sym == ((TypeStruct *)t)->sym)
         return Type::deduceWild(t, isRef);
 
-    unsigned wm = 0;
+    unsigned char wm = 0;
 
     if (sym->aliasthis && !(att & RECtracing))
     {
@@ -9263,13 +9265,13 @@ MATCH TypeClass::constConv(Type *to)
     return MATCHnomatch;
 }
 
-unsigned TypeClass::deduceWild(Type *t, bool isRef)
+unsigned char TypeClass::deduceWild(Type *t, bool isRef)
 {
     ClassDeclaration *cd = t->isClassHandle();
     if (cd && (sym == cd || cd->isBaseOf(sym, NULL)))
         return Type::deduceWild(t, isRef);
 
-    unsigned wm = 0;
+    unsigned char wm = 0;
 
     if (sym->aliasthis && !(att & RECtracing))
     {
@@ -9781,7 +9783,7 @@ char *Parameter::argsTypesToChars(Parameters *args, int varargs)
     HdrGenState hgs;
     argsToCBuffer(&buf, &hgs, args, varargs);
 
-    buf.writebyte(0);
+    buf.writeByte(0);
     return buf.extractData();
 }
 

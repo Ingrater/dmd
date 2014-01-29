@@ -41,6 +41,8 @@ extern bool obj_includelib(const char *name);
 void obj_startaddress(Symbol *s);
 void obj_lzext(Symbol *s1,Symbol *s2);
 
+void TypeInfo_toDt(dt_t **pdt, TypeInfoDeclaration *d);
+
 /* ================================================================== */
 
 // Put out instance of ModuleInfo for this Module
@@ -1062,7 +1064,7 @@ void TypeInfoDeclaration::toObjFile(int multiobj)
     s->Sclass = SCcomdat;
     s->Sfl = FLdata;
 
-    toDt(&s->Sdt);
+    TypeInfo_toDt(&s->Sdt, this);
 
     dt_optimize(s->Sdt);
 
@@ -1147,6 +1149,24 @@ void TemplateInstance::toObjFile(int multiobj)
 #endif
     if (!isError(this) && members)
     {
+        FuncDeclaration *fd = enclosing ? enclosing->isFuncDeclaration() : NULL;
+        if (fd && fd->fbody == NULL)
+        {
+            /* Prevent codegen if enclosing is an artificially instantiated function.
+             */
+            return;
+        }
+
+        TemplateDeclaration *tempdecl = this->tempdecl->isTemplateDeclaration();
+        assert(tempdecl);
+        if (tempdecl->literal && tempdecl->ident == Id::empty)
+        {
+            /* Bugzilla 10313: Template lambdas that instantiated in template constraint
+             * cannot appear in runnable code block. So, this skip won't cause linker failure.
+             */
+            return;
+        }
+
         if (multiobj)
             // Append to list of object files to be written later
             obj_append(this);

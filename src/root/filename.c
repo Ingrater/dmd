@@ -15,6 +15,7 @@
 #include "outbuffer.h"
 #include "array.h"
 #include "file.h"
+#include "rmem.h"
 
 #if defined (__sun)
 #include <alloca.h>
@@ -144,8 +145,7 @@ Strings *FileName::splitPath(const char *path)
             }
             if (buf.offset)             // if path is not empty
             {
-                buf.writeByte(0);       // to asciiz
-                array->push(buf.extractData());
+                array->push(buf.extractString());
             }
         } while (c);
     }

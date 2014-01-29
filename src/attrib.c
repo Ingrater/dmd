@@ -239,7 +239,8 @@ void AttribDeclaration::emitComment(Scope *sc)
     if (d)
     {
         for (size_t i = 0; i < d->dim; i++)
-        {   Dsymbol *s = (*d)[i];
+        {
+            Dsymbol *s = (*d)[i];
             //printf("AttribDeclaration::emitComment %s\n", s->toChars());
             s->emitComment(sc);
         }
@@ -575,7 +576,7 @@ void DeprecatedDeclaration::setScope(Scope *sc)
 {
     assert(msg);
     char *depmsg = NULL;
-    StringExp *se = msg->toString();
+    StringExp *se = msg->toStringExp();
     if (se)
         depmsg = (char *)se->string;
     else
@@ -736,8 +737,13 @@ void ProtDeclaration::semantic(Scope *sc)
 
 void ProtDeclaration::emitComment(Scope *sc)
 {
-    if (protection != PROTprivate)
+    if (decl)
+    {
+        sc = sc->push();
+        sc->protection = protection;
         AttribDeclaration::emitComment(sc);
+        sc = sc->pop();
+    }
 }
 
 void ProtDeclaration::protectionToCBuffer(OutBuffer *buf, PROT protection)
@@ -1018,7 +1024,7 @@ void PragmaDeclaration::semantic(Scope *sc)
                 {   errorSupplemental(loc, "while evaluating pragma(msg, %s)", (*args)[i]->toChars());
                     return;
                 }
-                StringExp *se = e->toString();
+                StringExp *se = e->toStringExp();
                 if (se)
                 {
                     se = se->toUTF8(sc);
@@ -1048,7 +1054,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             (*args)[0] = e;
             if (e->op == TOKerror)
                 goto Lnodecl;
-            StringExp *se = e->toString();
+            StringExp *se = e->toStringExp();
             if (!se)
                 error("string expected for library name, not '%s'", e->toChars());
             else
@@ -1061,7 +1067,7 @@ void PragmaDeclaration::semantic(Scope *sc)
                 if (global.params.moduleDeps && !global.params.moduleDepsFile)
                 {
                     OutBuffer *ob = global.params.moduleDeps;
-                    Module* imod = sc->instantiatingModule ? sc->instantiatingModule : sc->module;
+                    Module *imod = sc->instantiatingModule();
                     ob->writestring("depsLib ");
                     ob->writestring(imod->toPrettyChars());
                     ob->writestring(" (");
@@ -1112,7 +1118,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             if (e->op == TOKerror)
                 goto Lnodecl;
 
-            StringExp *se = e->toString();
+            StringExp *se = e->toStringExp();
 
             if (!se)
             {
@@ -1214,7 +1220,7 @@ Ldecl:
 
             if (ident == Id::mangle)
             {
-                StringExp *e = (*args)[0]->toString();
+                StringExp *e = (*args)[0]->toStringExp();
 
                 char *name = (char *)mem.malloc(e->len + 1);
                 memcpy(name, e->string, e->len);
@@ -1314,7 +1320,8 @@ void ConditionalDeclaration::emitComment(Scope *sc)
          */
         Dsymbols *d = decl ? decl : elsedecl;
         for (size_t i = 0; i < d->dim; i++)
-        {   Dsymbol *s = (*d)[i];
+        {
+            Dsymbol *s = (*d)[i];
             s->emitComment(sc);
         }
     }
@@ -1596,7 +1603,7 @@ void CompileDeclaration::compileIt(Scope *sc)
     exp = resolveProperties(sc, exp);
     sc = sc->endCTFE();
     exp = exp->ctfeInterpret();
-    StringExp *se = exp->toString();
+    StringExp *se = exp->toStringExp();
     if (!se)
     {
         exp->error("argument to mixin must be a string, not (%s)", exp->toChars());
@@ -1677,7 +1684,7 @@ void UserAttributeDeclaration::semantic(Scope *sc)
      * valid scope yet for their fwdref resolution.
      * Therefore running semantic analysis here is too early.
      */
-    //atts = arrayExpressionSemantic(atts, sc);
+    //arrayExpressionSemantic(atts, sc);
 
     if (decl)
     {

@@ -162,7 +162,7 @@ char *ThrownExceptionExp::toChars()
 void ThrownExceptionExp::generateUncaughtError()
 {
     Expression *e = (*thrown->value->elements)[0];
-    StringExp* se = e->toString();
+    StringExp* se = e->toStringExp();
     thrown->error("Uncaught CTFE exception %s(%s)", thrown->type->toChars(), se ? se->toChars() : e->toChars());
 
     /* Also give the line where the throw statement was. We won't have it
@@ -546,9 +546,9 @@ TypeAArray *toBuiltinAAType(Type *t)
     assert(t->ty == Tstruct);
     StructDeclaration *sym = ((TypeStruct *)t)->sym;
     assert(sym->ident == Id::AssociativeArray);
-    TemplateInstance *tinst = sym->parent->isTemplateInstance();
-    assert(tinst);
-    return new TypeAArray((Type *)(*tinst->tiargs)[1], (Type *)(*tinst->tiargs)[0]);
+    TemplateInstance *ti = sym->parent->isTemplateInstance();
+    assert(ti);
+    return new TypeAArray((Type *)(*ti->tiargs)[1], (Type *)(*ti->tiargs)[0]);
 #else
     assert(0);
     return NULL;
@@ -1754,10 +1754,11 @@ Expression *ctfeCast(Loc loc, Type *type, Type *to, Expression *e)
     if (e->op == TOKnull)
         return paintTypeOntoLiteral(to, e);
     if (e->op == TOKclassreference)
-    {   // Disallow reinterpreting class casts. Do this by ensuring that
+    {
+        // Disallow reinterpreting class casts. Do this by ensuring that
         // the original class can implicitly convert to the target class
         ClassDeclaration *originalClass = ((ClassReferenceExp *)e)->originalClass();
-        if (originalClass->type->implicitConvTo(to))
+        if (originalClass->type->implicitConvTo(to->mutableOf()))
             return paintTypeOntoLiteral(to, e);
         else
             return new NullExp(loc, to);
