@@ -58,6 +58,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>CompileAsCpp</CompileAs>
       <ForcedIncludeFiles>vcbuild\warnings.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Disabled</Optimization>
     </ClCompile>
     <Link>
       <AdditionalOptions>/LARGEADDRESSAWARE %(AdditionalOptions)</AdditionalOptions>

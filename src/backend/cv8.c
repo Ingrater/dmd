@@ -352,16 +352,9 @@ void cv8_func_term(Symbol *sfunc)
     buf->write32(0);
     buf->writeWordn(0);
 
-    char cid[1024];
-    char* pcid = (len >= 1024 ? (char*) malloc(len + 1) : cid);
-    cv_namestring((unsigned char*) pcid, id);
-
     buf->writeByte(0);
-    buf->writen(pcid, len);
+    buf->writen(id, len);
     buf->writeByte(0);
-
-    if(pcid != cid)
-        free(pcid);
 
     // Write local symbol table
     bool endarg = false;
@@ -561,6 +554,10 @@ void cv8_outsym(Symbol *s)
     if(len > CV8_MAX_SYMBOL_LENGTH)
         len = CV8_MAX_SYMBOL_LENGTH;
 
+    char cvid[1024];
+    char* pcvid = (len >= 1024 ? (char*) malloc(len + 1) : cvid);
+    cv_namestring((unsigned char*) pcvid, id);
+
     F1_Fixups f1f;
     Outbuffer *buf = currentfuncdata.f1buf;
 
@@ -594,7 +591,7 @@ void cv8_outsym(Symbol *s)
             buf->write32(s->Soffset + base + BPoff);
             buf->write32(typidx);
             buf->writeWordn(334);       // relative to RBP
-            buf->writen(id, len);
+            buf->writen(pcvid, len);
             buf->writeByte(0);
 #else
             // This is supposed to work, implicit BP relative addressing, but it does not
@@ -630,11 +627,13 @@ void cv8_outsym(Symbol *s)
             buf->writeWordn(S_REGISTER_V3);
             buf->write32(typidx);
             buf->writeWordn(cv8_regnum(s));
-            buf->writen(id, len);
+            buf->writen(pcvid, len);
             buf->writeByte(0);
             break;
 
         case SCextern:
+            if(pcvid != cvid)
+                free(pcvid);
             return;
 
         case SCstatic:
@@ -668,13 +667,17 @@ void cv8_outsym(Symbol *s)
             buf->write32(0);
             buf->writeWordn(0);
 
-            buf->writen(id, len);
+            buf->writen(pcvid, len);
             buf->writeByte(0);
             break;
 
         default:
+            if(pcvid != cvid)
+                free(pcvid);
             return;
     }
+    if(pcvid != cvid)
+        free(pcvid);
 }
 
 
@@ -884,6 +887,10 @@ idx_t cv8_darray(type *t, idx_t etypidx)
     if (idlen > CV8_MAX_SYMBOL_LENGTH)
         idlen = CV8_MAX_SYMBOL_LENGTH;
 
+    char cvid[1024];
+    char* pcvid = (idlen >= 1024 ? (char*) malloc(idlen + 1) : cvid);
+    cv_namestring((unsigned char*) pcvid, id);
+
     debtyp_t *d = debtyp_alloc(20 + idlen + 1);
     TOWORD(d->data, LF_STRUCTURE_V3);
     TOWORD(d->data + 2, 2);     // count
@@ -892,8 +899,11 @@ idx_t cv8_darray(type *t, idx_t etypidx)
     TOLONG(d->data + 10, 0);    // dList
     TOLONG(d->data + 14, 0);    // vtshape
     TOWORD(d->data + 18, 16);   // size
-    memcpy(d->data + 20, id, idlen);
+    memcpy(d->data + 20, pcvid, idlen);
     d->data[20 + idlen] = 0;
+
+    if(pcvid != cvid)
+        free(pcvid);
 
     idx_t top = cv_numdebtypes();
     idx_t debidx = cv_debtyp(d);

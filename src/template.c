@@ -7094,6 +7094,7 @@ char *TemplateInstance::toChars()
     HdrGenState hgs;
     char *s;
 
+    hgs.pretty = 1; // we need full module path on arguments to disambiguate
     toCBuffer(&buf, &hgs);
     s = buf.extractString();
     return s;

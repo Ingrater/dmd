@@ -24,6 +24,7 @@ struct HdrGenState
     int inArrExp;
     int emitInst;
     int autoMember;
+    int pretty;         // use toPrettyChars instead of toChars
 
     struct
     {

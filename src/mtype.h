@@ -234,6 +234,7 @@ public:
     int dyncast() { return DYNCAST_TYPE; } // kludge for template.isType()
     int covariant(Type *t, StorageClass *pstc = NULL);
     char *toChars();
+    char *toPrettyChars();
     static char needThisPrefix();
     static void init();
 

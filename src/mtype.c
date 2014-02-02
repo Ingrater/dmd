@@ -1580,6 +1580,17 @@ char *Type::toChars()
     return buf.extractString();
 }
 
+char *Type::toPrettyChars()
+{
+    OutBuffer buf;
+    buf.reserve(16);
+    HdrGenState hgs;
+    hgs.pretty = 1;
+
+    toCBuffer(&buf, NULL, &hgs);
+    return buf.extractString();
+}
+
 void Type::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs)
 {
     toCBuffer2(buf, hgs, 0);
@@ -8246,9 +8257,9 @@ void TypeStruct::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
     }
     TemplateInstance *ti = sym->parent->isTemplateInstance();
     if (ti && ti->toAlias() == sym)
-        buf->writestring(ti->toChars());
+        buf->writestring(hgs->pretty ? ti->toPrettyChars() : ti->toChars());
     else
-        buf->writestring(sym->toChars());
+        buf->writestring(hgs->pretty ? sym->toPrettyChars() : sym->toChars());
 }
 
 Expression *TypeStruct::dotExp(Scope *sc, Expression *e, Identifier *ident, int flag)
@@ -8807,9 +8818,9 @@ void TypeClass::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
     }
     TemplateInstance *ti = sym->parent->isTemplateInstance();
     if (ti && ti->toAlias() == sym)
-        buf->writestring(ti->toChars());
+        buf->writestring(hgs->pretty ? ti->toPrettyChars() : ti->toChars());
     else
-        buf->writestring(sym->toChars());
+        buf->writestring(hgs->pretty ? sym->toPrettyChars() : sym->toChars());
 }
 
 Expression *TypeClass::dotExp(Scope *sc, Expression *e, Identifier *ident, int flag)

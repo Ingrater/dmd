@@ -54,7 +54,7 @@ public:
     void visit(TypeDArray *t)
     {
         t->ctype = type_dyn_array(Type_toCtype(t->next));
-        t->ctype->Tident = t->toChars(); // needed to generate sensible debug info for cv8
+        t->ctype->Tident = t->toPrettyChars(); // needed to generate sensible debug info for cv8
     }
 
     void visit(TypeAArray *t)
