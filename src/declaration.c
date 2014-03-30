@@ -1184,8 +1184,7 @@ Lnomatch:
             else
             {
                 storage_class |= STCfield;
-                if ((tbn->ty == Tstruct && ((TypeStruct *)tbn)->sym->noDefaultCtor) ||
-                    (tbn->ty == Tclass  && ((TypeClass  *)tbn)->sym->noDefaultCtor))
+                if ((tbn->ty == Tstruct && ((TypeStruct *)tbn)->sym->noDefaultCtor))
                 {
                     if (!isThisDeclaration() && !init)
                         aad->noDefaultCtor = true;
