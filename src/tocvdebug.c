@@ -65,7 +65,6 @@ unsigned PROTtoATTR(Prot prot)
         case PROTpackage:       attribute = 2;  break;
         case PROTprotected:     attribute = 2;  break;
         case PROTpublic:        attribute = 3;  break;
-        case PROTexport:        attribute = 3;  break;
 
         case PROTundefined:
         case PROTnone:

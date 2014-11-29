@@ -1703,15 +1703,32 @@ bool VarDeclaration::needThis()
 
 bool VarDeclaration::isExport()
 {
-    return protection.kind == PROTexport;
+    if ((storage_class & STCgshared) == 0) // only export __gshared variables
+        return false;
+    if ((storage_class & STCexport) != 0) // if directly exported
+        return true;
+    if (protection.kind <= PROTprivate) // not accessible, no need to export
+        return false;
+    // check if any of the parents is a class/struct and if they are exported
+    if (AggregateDeclaration *c = parent->isAggregateDeclaration())
+    {
+        return c->isExport();
+    }
+    return false;
 }
 
 bool VarDeclaration::isImportedSymbol()
 {
-    if (protection.kind == PROTexport && !init &&
-        (storage_class & STCstatic || parent->isModule()))
-        return true;
-    return false;
+    if (!isExport())
+        return false;
+    Dsymbol* curParent = parent;
+    Module* module = curParent->isModule();
+    while (module == NULL)
+    {
+        curParent = curParent->parent;
+        module = curParent->isModule();
+    }
+    return !module->isRoot();
 }
 
 void VarDeclaration::checkCtorConstInit()
@@ -2104,6 +2121,11 @@ char *TypeInfoDeclaration::toChars()
     buf.writestring(tinfo->toChars());
     buf.writeByte(')');
     return buf.extractString();
+}
+
+bool TypeInfoDeclaration::isExport()
+{
+    return true;
 }
 
 /***************************** TypeInfoConstDeclaration **********************/

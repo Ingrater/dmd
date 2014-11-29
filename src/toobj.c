@@ -312,7 +312,14 @@ void ClassDeclaration::toObjFile(bool multiobj)
     }
 
     if (Type::typeinfoclass)
+    {
+        #if TARGET_WINDOS
+        Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
+        dtxoff(&dt, vtblSymbolImport, 0, TYnptr); // One indirection to much...
+        #else
         dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
+        #endif
+    }
     else
         dtsize_t(&dt, 0);                // BUG: should be an assert()
     dtsize_t(&dt, 0);                    // monitor
@@ -542,7 +549,7 @@ void ClassDeclaration::toObjFile(bool multiobj)
     // ClassInfo cannot be const data, because we use the monitor on it
     outdata(csym);
     if (isExport())
-        objmod->export_symbol(csym,0);
+        objmod->export_data_symbol(csym);
 
     //////////////////////////////////////////////
 
@@ -605,7 +612,7 @@ void ClassDeclaration::toObjFile(bool multiobj)
     out_readonly(vtblsym);
     outdata(vtblsym);
     if (isExport())
-        objmod->export_symbol(vtblsym,0);
+        objmod->export_data_symbol(vtblsym);
 }
 
 /******************************************
@@ -825,7 +832,7 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
     out_readonly(csym);
     outdata(csym);
     if (isExport())
-        objmod->export_symbol(csym,0);
+        objmod->export_data_symbol(csym);
 }
 
 /* ================================================================== */
@@ -1002,7 +1009,7 @@ void VarDeclaration::toObjFile(bool multiobj)
         {
             outdata(s);
             if (isExport())
-            objmod->export_symbol(s,0);
+                objmod->export_data_symbol(s);
         }
     }
 }
@@ -1078,7 +1085,7 @@ void TypeInfoDeclaration::toObjFile(bool multiobj)
 
     outdata(s);
     if (isExport())
-        objmod->export_symbol(s,0);
+        objmod->export_data_symbol(s);
 }
 
 /* ================================================================== */

@@ -113,7 +113,7 @@ void outdata(symbol *s)
     datasize = 0;
     ty = s->ty();
     if (ty & mTYexport && config.wflags & WFexpdef && s->Sclass != SCstatic)
-        objmod->export_symbol(s,0);        // export data definition
+        objmod->export_data_symbol(s);        // export data definition
     for (dt_t *dt = dtstart; dt; dt = dt->DTnext)
     {
         //printf("\tdt = %p, dt = %d\n",dt,dt->dt);

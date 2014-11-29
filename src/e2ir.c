@@ -1007,13 +1007,17 @@ elem *toElem(Expression *e, IRState *irs)
                 symbol_add(s);
             }
 
+            #if TARGET_WINDOS
+            // only windows needs special handling for imported symbols
             if (se->var->isImportedSymbol())
             {
                 assert(se->op == TOKvar);
                 e = el_var(se->var->toImport());
                 e = el_una(OPind,s->ty(),e);
             }
-            else if (ISREF(se->var, tb))
+            else 
+            #endif
+            if (ISREF(se->var, tb))
             {
                 // Static arrays are really passed as pointers to the array
                 // Out parameters are really references

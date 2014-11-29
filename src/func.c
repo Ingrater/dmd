@@ -3433,14 +3433,25 @@ bool FuncDeclaration::isDllMain()
 
 bool FuncDeclaration::isExport()
 {
-    return protection.kind == PROTexport;
+    //return protection.kind == PROTexport;
+    if ((storage_class & STCexport) != 0) // if directly exported
+        return true;
+    if (protection.kind <= PROTprivate) // not accessible, no need to export
+        return false;
+    // check if any of the parents is a class/struct and if they are exported
+    if (AggregateDeclaration *c = parent->isAggregateDeclaration())
+    {
+        return c->isExport();
+    }
+    return false;
 }
 
 bool FuncDeclaration::isImportedSymbol()
 {
     //printf("isImportedSymbol()\n");
     //printf("protection = %d\n", protection);
-    return (protection.kind == PROTexport) && !fbody;
+    //return (protection.kind == PROTexport) && !fbody;
+    return false;
 }
 
 // Determine if function goes into virtual function pointer table
@@ -3828,7 +3839,7 @@ bool FuncDeclaration::addPreInvariant()
     ClassDeclaration *cd = ad ? ad->isClassDeclaration() : NULL;
     return (ad && !(cd && cd->isCPPclass()) &&
             global.params.useInvariants &&
-            (protection.kind == PROTprotected || protection.kind == PROTpublic || protection.kind == PROTexport) &&
+            (protection.kind == PROTprotected || protection.kind == PROTpublic) &&
             !naked &&
             ident != Id::cpctor);
 }
@@ -3840,7 +3851,7 @@ bool FuncDeclaration::addPostInvariant()
     return (ad && !(cd && cd->isCPPclass()) &&
             ad->inv &&
             global.params.useInvariants &&
-            (protection.kind == PROTprotected || protection.kind == PROTpublic || protection.kind == PROTexport) &&
+            (protection.kind == PROTprotected || protection.kind == PROTpublic) &&
             !naked &&
             ident != Id::cpctor);
 }

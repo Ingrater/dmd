@@ -1982,6 +1982,11 @@ void Obj::export_symbol(Symbol *s,unsigned argsize)
     //dbg_printf("Obj::export_symbol(%s,%d)\n",s->Sident,argsize);
 }
 
+void Obj::export_data_symbol(Symbol *s)
+{
+    export_symbol(s, 0);
+}
+
 /*******************************
  * Update data information about symbol
  *      align for output and assign segment

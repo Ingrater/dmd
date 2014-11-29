@@ -534,6 +534,7 @@ Dsymbols *Parser::parseDeclDefs(int once, Dsymbol **pLastDecl, PrefixAttributes 
             case TOKpure:         stc = STCpure;         goto Lstc;
             case TOKref:          stc = STCref;          goto Lstc;
             case TOKgshared:      stc = STCgshared;      goto Lstc;
+            case TOKexport:       stc = STCexport;       goto Lstc;
             //case TOKmanifest:   stc = STCmanifest;     goto Lstc;
             case TOKat:
             {
@@ -711,7 +712,6 @@ Dsymbols *Parser::parseDeclDefs(int once, Dsymbol **pLastDecl, PrefixAttributes 
             case TOKpackage:    prot = PROTpackage;     goto Lprot;
             case TOKprotected:  prot = PROTprotected;   goto Lprot;
             case TOKpublic:     prot = PROTpublic;      goto Lprot;
-            case TOKexport:     prot = PROTexport;      goto Lprot;
             Lprot:
             {
                 if (pAttrs->protection.kind != PROTundefined)
@@ -3445,6 +3445,7 @@ void Parser::parseStorageClasses(StorageClass &storage_class, LINK &link, unsign
             case TOKref:        stc = STCref;            goto L1;
             case TOKgshared:    stc = STCgshared;        goto L1;
             case TOKenum:       stc = STCmanifest;       goto L1;
+            case TOKexport:     stc = STCexport;         goto L1;
             case TOKat:
             {
                 stc = parseAttribute(&udas);
@@ -4604,6 +4605,7 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
         case TOKunion:
         case TOKclass:
         case TOKinterface:
+        case TOKexport:
         Ldeclaration:
         {
             Dsymbols *a = parseDeclarations(false, NULL, NULL);
