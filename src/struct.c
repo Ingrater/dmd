@@ -406,7 +406,44 @@ bool AggregateDeclaration::isDeprecated()
 
 bool AggregateDeclaration::isExport()
 {
-    return protection.kind == PROTexport;
+    //return protection.kind == PROTexport;
+    if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
+        return true;
+    if (protection.kind <= PROTprivate) // not accessible, no need to export
+        return false;
+    // check if any of the parents is a class/struct and if they are exported
+    Dsymbol* realParent = parent;
+    while (TemplateMixin *mixin = realParent->isTemplateMixin())
+    {
+      realParent = mixin->parent;
+    }
+    if (AggregateDeclaration *c = realParent->isAggregateDeclaration())
+    {
+        return c->isExport();
+    }
+    else if (FuncDeclaration *f = realParent->isFuncDeclaration())
+    {
+        return f->isExport();
+    }
+    return false;
+}
+
+bool AggregateDeclaration::isImportedSymbol()
+{
+    if (!isExport())
+        return false;
+    Dsymbol* curParent = parent;
+    if (parent == NULL)
+        return false;
+    Module* module = curParent->isModule();
+    while (module == NULL)
+    {
+        curParent = curParent->parent;
+        if (curParent == NULL)
+            return false;
+        module = curParent->isModule();
+    }
+    return !module->isRoot();
 }
 
 /****************************

@@ -25,6 +25,7 @@
 #include        "type.h"
 #include        "dt.h"
 #include        "exh.h"
+#include        "root/array.h"
 
 static char __file__[] = __FILE__;      /* for tassert.h                */
 #include        "tassert.h"
@@ -64,9 +65,18 @@ symbol *except_gentables()
         symbol_keep(s);
         symbol_debug(s);
 
+#if TARGET_WINDOS
+        Array<DataSymbolRef> dataSymbolRefs;
+        except_fillInEHTable(s, &dataSymbolRefs);
+#else
         except_fillInEHTable(s);
+#endif
 
         outdata(s);                 // output the scope table
+
+#if TARGET_WINDOS
+        objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+#endif
 
         objmod->ehtables(funcsym_p,funcsym_p->Ssize,s);
     }
@@ -92,7 +102,7 @@ symbol *except_gentables()
  * }
  */
 
-void except_fillInEHTable(symbol *s)
+void except_fillInEHTable(symbol *s, Array<DataSymbolRef> *dataSymbolRefs)
 {
     unsigned fsize = NPTRSIZE;             // target size of function pointer
     dt_t **pdt = &s->Sdt;
@@ -361,7 +371,22 @@ void except_fillInEHTable(symbol *s)
             {
                 block *bcatch = b->nthSucc(i);
 
-                pdt = dtxoff(pdt,bcatch->Bcatchtype,0,TYjhandle);
+                Symbol *catchtype = bcatch->Bcatchtype;
+                #if TARGET_WINDOS
+                if (bcatch->Bcatchimported)
+                {
+                    assert(dataSymbolRefs != NULL);
+                    DataSymbolRef ref;
+                    ref.offsetInDt = sz;
+                    ref.referenceOffset = 0;
+                    dataSymbolRefs->push(ref);
+                    pdt = dtxoff(pdt, catchtype, 0, TYjhandle);
+                }
+                else
+                #endif
+                {
+                    pdt = dtxoff(pdt, catchtype, 0, TYjhandle);
+                }
 
                 pdt = dtsize_t(pdt,cod3_bpoffset(b->jcatchvar));     // EBP offset
 

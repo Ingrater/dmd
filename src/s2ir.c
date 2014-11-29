@@ -735,7 +735,14 @@ public:
 
         //printf("SwitchErrorStatement::toIR()\n");
 
-        elem *efilename = el_ptr(toSymbol(blx->module));
+        elem *efilename = NULL;
+        #if TARGET_WINDOS
+        if (global.params.mscoff && !blx->module->isRoot())
+          efilename = el_una(OPind, TYnptr, el_ptr(blx->module->toImport()));
+        #endif
+        if (efilename == NULL)
+          efilename = el_ptr(toSymbol(blx->module));
+
         elem *elinnum = el_long(TYint, s->loc.linnum);
         elem *e = el_bin(OPcall, TYvoid, el_var(rtlsym[RTLSYM_DSWITCHERR]), el_param(elinnum, efilename));
         block_appendexp(blx->curblock, e);
@@ -1039,7 +1046,26 @@ public:
                 cs->var->csym = tryblock->jcatchvar;
             block *bcatch = blx->curblock;
             if (cs->type)
-                bcatch->Bcatchtype = toSymbol(cs->type->toBasetype());
+            {
+                Type *basetype = cs->type->toBasetype();
+                #if TARGET_WINDOS
+                bcatch->Bcatchimported = false;
+                ClassDeclaration* basetypeClass = basetype->isClassHandle();
+                assert(basetypeClass != NULL); // D can only catch classes
+                if (global.params.useDll && basetypeClass->isImportedSymbol())
+                {
+                    bcatch->Bcatchimported = true;
+                    bcatch->Bcatchtype = basetypeClass->toImport();
+                }
+                else
+                {
+                    bcatch->Bcatchtype = toSymbol(basetype);
+                }
+                #else
+                bcatch->Bcatchtype = toSymbol(basetype);
+                #endif
+                
+            }
             tryblock->appendSucc(bcatch);
             block_goto(blx, BCjcatch, NULL);
             if (cs->handler != NULL)

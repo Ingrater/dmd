@@ -2371,6 +2371,16 @@ void Obj::export_symbol(Symbol *s,unsigned argsize)
     objrecord(COMENT,coment,4 + len + 1);       // module name record
 }
 
+void Obj::export_data_symbol(Symbol *s)
+{
+    return export_symbol(s, 0);
+}
+
+void Obj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
+{
+    // TODO implement
+}
+
 /*******************************
  * Update data information about symbol
  *      align for output and assign segment

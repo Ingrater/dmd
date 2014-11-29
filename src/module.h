@@ -25,6 +25,7 @@ struct Macro;
 struct Escape;
 class VarDeclaration;
 class Library;
+struct dt_t;
 
 enum PKG
 {

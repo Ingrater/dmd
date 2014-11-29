@@ -51,7 +51,7 @@ void slist_reset();
 Classsym *fake_classsym(Identifier *id);
 type *Type_toCtype(Type *t);
 dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs = NULL);
 Symbol *toInitializer(AggregateDeclaration *ad);
 
 /*************************************
@@ -437,6 +437,29 @@ Symbol *toSymbol(Dsymbol *s)
     ToSymbol v;
     s->accept(&v);
     return v.result;
+}
+
+/*********************************
+ * Generate import symbol from symbol.
+ */
+
+Symbol *Dsymbol::toImport()
+{
+    #if TARGET_WINDOS
+    // Only the windows plattform needs import symbols
+    if (!isym)
+    {
+        if (!csym)
+            csym = toSymbol(this);
+        isym = toImport(csym);
+    }
+    return isym;
+    #else
+    // Return the c-symbol on all other plattforms
+    if(!csym)
+        csym = toSymbol(this);
+    return csym;
+    #endif
 }
 
 /*************************************

@@ -4865,6 +4865,7 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr, Loc *pEndloc
         case TOKunion:
         case TOKclass:
         case TOKinterface:
+        case TOKexport:
         Ldeclaration:
         {
             Dsymbols *a = parseDeclarations(false, NULL, NULL);

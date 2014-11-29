@@ -1742,7 +1742,7 @@ bool canInline(FuncDeclaration *fd, int hasthis, int hdrscan, int statementsToo)
         !hdrscan &&
         (
         fd->isSynchronized() ||
-        fd->isImportedSymbol() ||
+        (global.params.useDll && fd->isImportedSymbol()) ||
         fd->hasNestedFrameRefs() ||
         (fd->isVirtual() && !fd->isFinalFunc())
        ))

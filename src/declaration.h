@@ -72,8 +72,8 @@ enum PINLINE;
 // but not typed as "shared"
 #define STCgshared      0x40000000LL
 #define STCwild         0x80000000LL    // for "wild" type constructor
-#define STC_TYPECTOR    (STCconst | STCimmutable | STCshared | STCwild)
 #define STC_FUNCATTR    (STCref | STCnothrow | STCnogc | STCpure | STCproperty | STCsafe | STCtrusted | STCsystem)
+#define STC_TYPECTOR    (STCconst | STCimmutable | STCshared | STCwild)
 
 #define STCproperty      0x100000000LL
 #define STCsafe          0x200000000LL
@@ -317,6 +317,8 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     char *toChars();
+    bool isExport();
+    bool isImportedSymbol();
 
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }

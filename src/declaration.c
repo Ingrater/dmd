@@ -646,6 +646,7 @@ OverDeclaration::OverDeclaration(Dsymbol *s, bool hasOverloads)
 {
     this->overnext = NULL;
     this->aliassym = s;
+    this->overnext = NULL;
 
     this->hasOverloads = hasOverloads;
     if (hasOverloads)
@@ -1760,15 +1761,45 @@ bool VarDeclaration::needThis()
 
 bool VarDeclaration::isExport()
 {
-    return protection.kind == PROTexport;
+    // if the symbol does not go into the data segment we can't export it
+    if (!isDataseg())
+      return false;
+    // if the symbol is thread local we can't export it either, as cross dll thread local doesn't work.
+    if (isThreadlocal())
+      return false;
+    if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
+        return true;
+    if (protection.kind <= PROTprivate) // not accessible, no need to export
+        return false;
+    // check if any of the parents is a class/struct and if they are exported
+    Dsymbol* realParent = parent;
+    while (TemplateMixin *mixin = realParent->isTemplateMixin())
+    {
+      realParent = mixin->parent;
+    }
+    if (AggregateDeclaration *c = realParent->isAggregateDeclaration())
+    {
+      return c->isExport();
+    }
+    return false;
 }
 
 bool VarDeclaration::isImportedSymbol()
 {
-    if (protection.kind == PROTexport && !init &&
-        (storage_class & STCstatic || parent->isModule()))
-        return true;
-    return false;
+    if (!isExport())
+        return false;
+    Dsymbol* curParent = parent;
+    if (parent == NULL)
+        return false;
+    Module* module = curParent->isModule();
+    while (module == NULL)
+    {
+        curParent = curParent->parent;
+        if (curParent == NULL)
+            return false;
+        module = curParent->isModule();
+    }
+    return !module->isRoot();
 }
 
 void VarDeclaration::checkCtorConstInit()
@@ -2186,6 +2217,38 @@ char *TypeInfoDeclaration::toChars()
     buf.writestring(tinfo->toChars());
     buf.writeByte(')');
     return buf.extractString();
+}
+
+bool TypeInfoDeclaration::isExport()
+{
+    // For builtin type infos forward to the actual implementation.
+    if (tinfo->builtinTypeInfo())
+      return type->toDsymbol(NULL)->isExport();
+    // find the end of the type chain
+    Type* baseType = tinfo;
+    while (Type* nextType = baseType->nextOf())
+    {
+      baseType = nextType;
+    }
+    // if we get a symbol its user defined and we can check if the user defined exports or not
+    // if we don't get a symbol is a builtin type and we always export
+    Dsymbol* sym = baseType->toDsymbol(NULL);
+    return (sym != NULL) ? sym->isExport() : true;
+}
+
+bool TypeInfoDeclaration::isImportedSymbol()
+{
+    // For builtin type infos forward to the actual implementation.
+    if (tinfo->builtinTypeInfo())
+      return type->toDsymbol(NULL)->isImportedSymbol();
+    // if we don't have a parent the type info has been instanciated during 
+    // a genObj phase. That means its definitly local.
+    if (parent == NULL)
+      return false;
+    Module *m = parent->isModule();
+    assert(m); // parent should always be a module
+    // if the module that instanciated the type info is not a root module we need to import the type info.
+    return !m->isRoot() && this->isExport();
 }
 
 /***************************** TypeInfoConstDeclaration **********************/

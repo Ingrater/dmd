@@ -475,6 +475,12 @@ void genObjFile(Module *m, bool multiobj)
         return;
     }
 
+    if (massert && this->isRoot())
+      objmod->export_symbol(massert, 0);
+
+    if (marray && this->isRoot())
+      objmod->export_symbol(marray, 0);
+
     /* Always generate module info, because of templates and -cov.
      * But module info needs the runtime library, so disable it for betterC.
      */
@@ -923,7 +929,12 @@ void FuncDeclaration_toObjFile(FuncDeclaration *fd, bool multiobj)
 #if TARGET_WINDOS
             if (global.params.mscoff)
             {
-                objmod->includelib("LIBCMT");
+                if (global.params.useDll)
+                {
+                    objmod->includelib("msvcrt");
+                }
+                else
+                    objmod->includelib("LIBCMT");
                 objmod->includelib("OLDNAMES");
             }
             else
@@ -940,7 +951,10 @@ void FuncDeclaration_toObjFile(FuncDeclaration *fd, bool multiobj)
             if (global.params.mscoff)
             {
                 objmod->includelib("uuid");
-                objmod->includelib("LIBCMT");
+                if (global.params.useDll)
+                    objmod->includelib("msvcrt");
+                else
+                    objmod->includelib("LIBCMT");
                 objmod->includelib("OLDNAMES");
                 objmod->ehsections();   // initialize exception handling sections
             }
@@ -958,7 +972,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration *fd, bool multiobj)
             if (global.params.mscoff)
             {
                 objmod->includelib("uuid");
-                objmod->includelib("LIBCMT");
+                objmod->includelib("msvcrt");
                 objmod->includelib("OLDNAMES");
                 objmod->ehsections();   // initialize exception handling sections
             }

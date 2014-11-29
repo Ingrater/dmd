@@ -52,7 +52,7 @@ elem *toElemDtor(Expression *e, IRState *irs);
 unsigned totym(Type *tx);
 Symbol *toSymbol(Dsymbol *s);
 elem *toElem(Expression *e, IRState *irs);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs = NULL);
 Symbol *toStringSymbol(const char *str, size_t len, size_t sz);
 void toObjFile(Dsymbol *ds, bool multiobj);
 Symbol *toModuleAssert(Module *m);
@@ -1080,13 +1080,17 @@ elem *toElem(Expression *e, IRState *irs)
                 symbol_add(s);
             }
 
-            if (se->var->isImportedSymbol())
+            #if TARGET_WINDOS
+            // only windows needs special handling for imported symbols
+            if (global.params.useDll && (se->var->isImportedSymbol() || (se->var->isSymbolDeclaration() && se->var->isSymbolDeclaration()->dsym->isImportedSymbol())))
             {
                 assert(se->op == TOKvar);
                 e = el_var(toImport(se->var));
                 e = el_una(OPind,s->ty(),e);
             }
-            else if (ISREF(se->var, tb))
+            else 
+            #endif
+            if (ISREF(se->var, tb))
             {
                 // Static arrays are really passed as pointers to the array
                 // Out parameters are really references
@@ -1472,8 +1476,23 @@ elem *toElem(Expression *e, IRState *irs)
                 }
                 else
                 {
+                    elem_p classinfo = NULL;
+                    #if TARGET_WINDOS
+                    if (global.params.useDll && cd->isImportedSymbol())
+                    {
+                        Symbol *csym = cd->toImport();
+                        classinfo = el_una(OPind, TYnptr, el_ptr(csym));
+                    }
+                    else
+                    {
+                        Symbol *csym = toSymbol(cd);
+                        classinfo = el_ptr(csym);
+                    }
+                    #else
                     Symbol *csym = toSymbol(cd);
-                    ex = el_bin(OPcall,TYnptr,el_var(rtlsym[RTLSYM_NEWCLASS]),el_ptr(csym));
+                    classinfo = el_ptr(csym);
+                    #endif
+                    ex = el_bin(OPcall, TYnptr, el_var(rtlsym[RTLSYM_NEWCLASS]), classinfo);
                     toTraceGC(irs, ex, &ne->loc);
                     ectype = NULL;
 
@@ -4041,18 +4060,25 @@ elem *toElem(Expression *e, IRState *irs)
                 }
                 else
                 {
-                    /* The offset from cdfrom => cdto can only be determined at runtime.
-                     * Cases:
-                     *  - class     => derived class (downcast)
-                     *  - interface => derived class (downcast)
-                     *  - class     => foreign interface (cross cast)
-                     *  - interface => base or foreign interface (cross cast)
+                    /* The offset from cdfrom=>cdto can only be determined at runtime.
                      */
-                    int rtl = cdfrom->isInterfaceDeclaration()
-                                ? RTLSYM_INTERFACE_CAST
-                                : RTLSYM_DYNAMIC_CAST;
-                    elem *ep = el_param(el_ptr(toSymbol(cdto)), e);
-                    e = el_bin(OPcall, TYnptr, el_var(rtlsym[rtl]), ep);
+                    elem *ep = NULL;
+                    #if TARGET_WINDOS
+                    if (global.params.useDll)
+                    {
+                        ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(cdto->toImport())) : el_ptr(toSymbol(cdto)), e);
+                    }
+                    else
+                    {
+                        ep = el_param(el_ptr(toSymbol(cdto)), e);
+                    }
+                    #else
+                    ep = el_param(el_ptr(toSymbol(cdto)), e);
+                #endif
+                int rtl = cdfrom->isInterfaceDeclaration()
+                            ? RTLSYM_INTERFACE_CAST
+                            : RTLSYM_DYNAMIC_CAST;
+                e = el_bin(OPcall, TYnptr, el_var(rtlsym[rtl]), ep);
                 }
                 goto Lret;
             }

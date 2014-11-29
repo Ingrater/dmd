@@ -20,6 +20,7 @@ struct Aobject
     symbol *AOfunc;             // cleanup function
 };
 
+template <typename> struct Array;
 
 /* except.c */
 void  except_init(void);
@@ -39,7 +40,7 @@ void  except_mark();
 void  except_release();
 symbol *except_gensym();
 symbol *except_gentables();
-void except_fillInEHTable(symbol *s);
+void except_fillInEHTable(symbol *s, Array<struct DataSymbolRef> *dataSymbolRefs = 0);
 void  except_reset();
 
 /* pdata.c */
