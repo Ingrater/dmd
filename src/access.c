@@ -77,6 +77,7 @@ Prot getAccess(AggregateDeclaration *ad, Dsymbol *smember)
                 case PROTpackage:
                 case PROTprotected:
                 case PROTpublic:
+                case PROTexport:
                     // If access is to be tightened
                     if (b->protection.isMoreRestrictiveThan(access))
                         access = b->protection;

@@ -1825,6 +1825,11 @@ void Obj::moduleinfo(Symbol *scc)
     SegData[obj.fmsegi]->SDoffset = offset;
 }
 
+void Obj::dllreloc(Symbol *s)
+{
+    // TODO implement
+}
+
 #endif
 
 

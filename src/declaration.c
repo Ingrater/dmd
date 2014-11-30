@@ -1705,7 +1705,7 @@ bool VarDeclaration::isExport()
 {
     if ((storage_class & STCgshared) == 0) // only export __gshared variables
         return false;
-    if ((storage_class & STCexport) != 0) // if directly exported
+    if (protection.kind == PROTexport) // if directly exported
         return true;
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;

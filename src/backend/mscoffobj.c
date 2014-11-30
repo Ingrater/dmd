@@ -1410,6 +1410,37 @@ void MsCoffObj::ehsections()
     MsCoffObj::bytes(segen, 0, I64 ? 8 : 4, NULL);
   }
 
+  {
+    /* Dll reallocation section 
+     */
+    int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;
+
+    const int segbg =
+        MsCoffObj::getsegment(".dllra$A", IMAGE_SCN_CNT_INITIALIZED_DATA |
+        align |
+        IMAGE_SCN_MEM_READ);
+    const int segen =
+        MsCoffObj::getsegment(".dllra$C", IMAGE_SCN_CNT_INITIALIZED_DATA |
+        align |
+        IMAGE_SCN_MEM_READ);
+
+    /* Create symbol _minfo_beg that sits just before the .dllra$B section
+    */
+    symbol *dllra_beg = symbol_name("_dllra_beg", SCglobal, tspvoid);
+    dllra_beg->Sseg = segbg;
+    dllra_beg->Soffset = 0;
+    symbuf->write(&dllra_beg, sizeof(dllra_beg));
+    MsCoffObj::bytes(segbg, 0, I64 ? 8 : 4, NULL);
+
+    /* Create symbol _minfo_end that sits just after the .dllra$B section
+    */
+    symbol *dllra_end = symbol_name("_dllra_end", SCglobal, tspvoid);
+    dllra_end->Sseg = segen;
+    dllra_end->Soffset = 0;
+    symbuf->write(&dllra_end, sizeof(dllra_end));
+    MsCoffObj::bytes(segen, 0, I64 ? 8 : 4, NULL);
+  }
+
     /*************************************************************************/
 
 #if 0
@@ -2625,6 +2656,24 @@ void MsCoffObj::moduleinfo(Symbol *scc)
     if (I64)
         flags |= CFoffset64;
     SegData[seg]->SDoffset += MsCoffObj::reftoident(seg, Offset(seg), scc, 0, flags);
+}
+
+void MsCoffObj::dllreloc(Symbol *s)
+{
+    int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;
+
+    /* Dll data reallocation segment
+    */
+    const int seg =
+        MsCoffObj::getsegment(".dllra$B", IMAGE_SCN_CNT_INITIALIZED_DATA |
+        align |
+        IMAGE_SCN_MEM_READ);
+    //printf("MsCoffObj::dllreloc(%s) seg = %d:x%x\n", scc->Sident, seg, Offset(seg));
+
+    int flags = CFoff;
+    if (I64)
+        flags |= CFoffset64;
+    SegData[seg]->SDoffset += MsCoffObj::reftoident(seg, Offset(seg), s, 0, flags);
 }
 
 #endif

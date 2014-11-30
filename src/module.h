@@ -25,6 +25,7 @@ struct Macro;
 struct Escape;
 class VarDeclaration;
 class Library;
+struct dt_t;
 
 enum PKG
 {
@@ -54,6 +55,10 @@ public:
 
     Module *isPackageMod();
 };
+
+#if TARGET_WINDOS
+extern dt_t   *g_dllRealloc;         // data symbol reallocation information for windows dlls
+#endif
 
 class Module : public Package
 {

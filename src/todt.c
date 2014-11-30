@@ -33,6 +33,8 @@
 #include        "ctfe.h"
 #include        "arraytypes.h"
 #include        "visitor.h"
+#include        "dsymbol.h"
+#include        "module.h"
 // Back end
 #include        "dt.h"
 
@@ -498,7 +500,17 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt)
                 e->error("non-constant expression %s", e->toChars());
                 return;
             }
-            pdt =  dtxoff(pdt, toSymbol(e->var), e->offset);
+        #if TARGET_WINDOS
+            if (e->var->isImportedSymbol())
+            {
+                pdt = dtxoff(pdt, e->var->toImport(), e->offset);
+                dt_t** mpdt = &g_dllRealloc;
+                dtdtoff(mpdt, *pdt, 0);    // pointer to patch
+                dtsize_t(mpdt, e->offset); // offset of imported symbol
+            }
+            else
+        #endif
+              pdt =  dtxoff(pdt, toSymbol(e->var), e->offset);
         }
 
         void visit(VarExp *e)

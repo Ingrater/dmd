@@ -3026,6 +3026,7 @@ const char *protectionToChars(PROTKIND kind)
         case PROTpackage:   return "package";
         case PROTprotected: return "protected";
         case PROTpublic:    return "public";
+        case PROTexport:    return "export";
         default:            assert(0);
     }
     return NULL;    // never reached
