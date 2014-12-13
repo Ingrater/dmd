@@ -46,12 +46,12 @@ void obj_startaddress(Symbol *s);
 void obj_lzext(Symbol *s1,Symbol *s2);
 
 void TypeInfo_toDt(dt_t **pdt, TypeInfoDeclaration *d);
-dt_t *Initializer_toDt(Initializer *init);
+dt_t *Initializer_toDt(Initializer *init, unsigned int* dataRefOffset = NULL);
 dt_t **Type_toDt(Type *t, dt_t **pdt);
 void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt);
 void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt);
 Symbol *toSymbol(Dsymbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
 
 void toDebug(EnumDeclaration *ed);
 void toDebug(StructDeclaration *sd);
@@ -314,8 +314,12 @@ void ClassDeclaration::toObjFile(bool multiobj)
     if (Type::typeinfoclass)
     {
         #if TARGET_WINDOS
+        objmod->ref_data_symbol(csym, dt_size(dt), 0);
         Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
         dtxoff(&dt, vtblSymbolImport, 0, TYnptr); // One indirection to much...
+        // emit relocation information
+        //dtdtoff(&g_dllReloc, dt, 0);
+        //dtsize_t(&g_dllReloc, 0);
         #else
         dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
         #endif
@@ -352,7 +356,19 @@ void ClassDeclaration::toObjFile(bool multiobj)
 
     // base
     if (baseClass)
+    {
+        #if TARGET_WINDOS
+        // TODO check if class is really imported
+        objmod->ref_data_symbol(csym, dt_size(dt), 0);
+        Symbol *baseClassImport = Dsymbol::toImport(toSymbol(baseClass));
+        dtxoff(&dt, baseClassImport, 0, TYnptr); // One indirection to much...
+        // emit relocation information
+        //dtdtoff(&g_dllReloc, dt, 0);
+        //dtsize_t(&g_dllReloc, 0);
+        #else
         dtxoff(&dt, toSymbol(baseClass), 0, TYnptr);
+        #endif
+    }
     else
         dtsize_t(&dt, 0);
 
@@ -730,7 +746,18 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
     dt_t *dt = NULL;
 
     if (Type::typeinfoclass)
+    {
+        #if TARGET_WINDOS
+        // emit relocation information
+        objmod->ref_data_symbol(csym, dt_size(dt), 0);
+        Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
+        dtxoff(&dt, vtblSymbolImport, 0, TYnptr); // One indirection to much...
+        //dtdtoff(&g_dllReloc, dt, 0);
+        //dtsize_t(&g_dllReloc, 0);
+        #else
         dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
+        #endif
+    }
     else
         dtsize_t(&dt, 0);                // BUG: should be an assert()
     dtsize_t(&dt, 0);                    // monitor
@@ -955,7 +982,12 @@ void VarDeclaration::toObjFile(bool multiobj)
 
         if (init)
         {
-            s->Sdt = Initializer_toDt(init);
+            unsigned int dataRefOffset = 0xFFFFFFFF;
+            s->Sdt = Initializer_toDt(init, &dataRefOffset);
+            #if TARGET_WINDOS
+            if (dataRefOffset != 0xFFFFFFFF)
+                objmod->ref_data_symbol(s, 0, dataRefOffset); // this assumes that references to data symbols are always directly at the symbol without offset
+            #endif
 
             // Look for static array that is block initialized
             Type *tb;

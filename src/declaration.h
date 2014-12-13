@@ -327,6 +327,7 @@ public:
     void semantic(Scope *sc);
     char *toChars();
     bool isExport();
+    bool isImportedSymbol();
 
     void toObjFile(bool multiobj);                       // compile to .obj file
 

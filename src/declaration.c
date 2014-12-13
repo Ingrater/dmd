@@ -1705,7 +1705,7 @@ bool VarDeclaration::isExport()
 {
     if ((storage_class & STCgshared) == 0) // only export __gshared variables
         return false;
-    if (protection.kind == PROTexport) // if directly exported
+    if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
         return true;
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;
@@ -1722,10 +1722,14 @@ bool VarDeclaration::isImportedSymbol()
     if (!isExport())
         return false;
     Dsymbol* curParent = parent;
+    if (parent == NULL)
+        return false;
     Module* module = curParent->isModule();
     while (module == NULL)
     {
         curParent = curParent->parent;
+        if (curParent == NULL)
+            return false;
         module = curParent->isModule();
     }
     return !module->isRoot();
@@ -2125,7 +2129,14 @@ char *TypeInfoDeclaration::toChars()
 
 bool TypeInfoDeclaration::isExport()
 {
-    return true;
+    Dsymbol* sym = type->toDsymbol(NULL);
+    return (sym != NULL) ? sym->isExport() : false;
+}
+
+bool TypeInfoDeclaration::isImportedSymbol()
+{
+    Dsymbol* sym = type->toDsymbol(NULL);
+    return (sym != NULL) ? sym->isImportedSymbol() : false;
 }
 
 /***************************** TypeInfoConstDeclaration **********************/

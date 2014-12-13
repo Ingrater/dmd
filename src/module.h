@@ -57,7 +57,7 @@ public:
 };
 
 #if TARGET_WINDOS
-extern dt_t   *g_dllRealloc;         // data symbol reallocation information for windows dlls
+//extern dt_t   *g_dllReloc;         // data symbol reallocation information for windows dlls
 #endif
 
 class Module : public Package

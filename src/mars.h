@@ -139,6 +139,7 @@ struct Param
     bool betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
+    bool exportall;     // export all symbols which are public
 
     const char *argv0;    // program name
     Strings *imppath;     // array of char*'s of where to look for import modules

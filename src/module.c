@@ -39,7 +39,7 @@ Dsymbols Module::deferred; // deferred Dsymbol's needing semantic() run on them
 Dsymbols Module::deferred3;
 unsigned Module::dprogress;
 
-dt_t* g_dllRealloc;
+//dt_t* g_dllReloc;
 
 const char *lookForSourceFile(const char *filename);
 

@@ -405,7 +405,7 @@ bool AggregateDeclaration::muteDeprecationMessage()
 bool AggregateDeclaration::isExport()
 {
     //return protection.kind == PROTexport;
-    if (protection.kind == PROTexport) // if directly exported
+    if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
         return true;
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;
@@ -415,6 +415,24 @@ bool AggregateDeclaration::isExport()
         return c->isExport();
     }
     return false;
+}
+
+bool AggregateDeclaration::isImportedSymbol()
+{
+    if (!isExport())
+        return false;
+    Dsymbol* curParent = parent;
+    if (parent == NULL)
+        return false;
+    Module* module = curParent->isModule();
+    while (module == NULL)
+    {
+        curParent = curParent->parent;
+        if (curParent == NULL)
+            return false;
+        module = curParent->isModule();
+    }
+    return !module->isRoot();
 }
 
 /****************************

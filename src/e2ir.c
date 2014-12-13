@@ -55,7 +55,7 @@ elem *toElemDtor(Expression *e, IRState *irs);
 unsigned totym(Type *tx);
 Symbol *toSymbol(Dsymbol *s);
 elem *toElem(Expression *e, IRState *irs);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
 
 int callSideEffectLevel(FuncDeclaration *f);
 int callSideEffectLevel(Type *t);
@@ -1432,8 +1432,18 @@ elem *toElem(Expression *e, IRState *irs)
                 }
                 else
                 {
-                    Symbol *csym = toSymbol(cd);
-                    ex = el_bin(OPcall,TYnptr,el_var(rtlsym[RTLSYM_NEWCLASS]),el_ptr(csym));
+                    elem_p classinfo = NULL;
+                    if (cd->isImportedSymbol())
+                    {
+                        Symbol *csym = cd->toImport();
+                        classinfo = el_una(OPind, TYnptr, el_ptr(csym));
+                    }
+                    else
+                    {
+                        Symbol *csym = toSymbol(cd);
+                        classinfo = el_ptr(csym);
+                    }
+                    ex = el_bin(OPcall, TYnptr, el_var(rtlsym[RTLSYM_NEWCLASS]), classinfo);
                     ectype = NULL;
 
                     if (cd->isNested())

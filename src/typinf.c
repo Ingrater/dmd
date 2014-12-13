@@ -32,7 +32,7 @@
 #include "dt.h"
 
 Symbol *toSymbol(Dsymbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
 
 /*******************************************
  * Get a canonicalized form of the TypeInfo for use with the internal

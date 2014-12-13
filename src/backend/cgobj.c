@@ -2362,6 +2362,11 @@ void Obj::export_data_symbol(Symbol *s)
     return export_symbol(s, 0);
 }
 
+void Obj::ref_data_symbol(Symbol *dataSym, targ_size_t offsetSym, targ_size_t offsetRef)
+{
+    // TODO implement
+}
+
 /*******************************
  * Update data information about symbol
  *      align for output and assign segment

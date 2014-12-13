@@ -51,7 +51,7 @@ Classsym *fake_classsym(Identifier *id);
 Symbols *Symbols_create();
 type *Type_toCtype(Type *t);
 dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
 
 /*************************************
  * Helper

@@ -50,16 +50,17 @@ dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt);
 dt_t **membersToDt(ClassReferenceExp *ce, dt_t **pdt, ClassDeclaration *cd, Dts *dts);
 dt_t **ClassReferenceExp_toDt(ClassReferenceExp *e, dt_t **pdt, int off);
 Symbol *toSymbol(Dsymbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
 
 /* ================================================================ */
 
-dt_t *Initializer_toDt(Initializer *init)
+dt_t *Initializer_toDt(Initializer *init, unsigned int* dataRefOffset)
 {
     class InitToDt : public Visitor
     {
     public:
         dt_t *result;
+        unsigned int* dataRefOffset;
 
         InitToDt()
             : result(NULL)
@@ -110,7 +111,7 @@ dt_t *Initializer_toDt(Initializer *init)
                 //printf("\tindex[%d] = %p, length = %u, dim = %u\n", i, idx, length, ai->dim);
 
                 assert(length < ai->dim);
-                dt_t *dt = Initializer_toDt(ai->value[i]);
+                dt_t *dt = Initializer_toDt(ai->value[i], dataRefOffset);
                 if (dts[length])
                     error(ai->loc, "duplicate initializations for index %d", length);
                 dts[length] = dt;
@@ -187,26 +188,28 @@ dt_t *Initializer_toDt(Initializer *init)
         {
             //printf("ExpInitializer::toDt() %s\n", ei->exp->toChars());
             ei->exp = ei->exp->optimize(WANTvalue);
-            Expression_toDt(ei->exp, &result);
+            Expression_toDt(ei->exp, &result, dataRefOffset);
         }
     };
 
     InitToDt v;
+    v.dataRefOffset = dataRefOffset;
     init->accept(&v);
     return v.result;
 }
 
 /* ================================================================ */
 
-dt_t **Expression_toDt(Expression *e, dt_t **pdt)
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
 {
     class ExpToDt : public Visitor
     {
     public:
         dt_t **pdt;
+        unsigned int *dataRefOffset;
 
-        ExpToDt(dt_t **pdt)
-            : pdt(pdt)
+        ExpToDt(dt_t **pdt, unsigned int* dataRefOffset)
+            : pdt(pdt), dataRefOffset(dataRefOffset)
         {
         }
 
@@ -503,10 +506,15 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt)
         #if TARGET_WINDOS
             if (e->var->isImportedSymbol())
             {
-                pdt = dtxoff(pdt, e->var->toImport(), e->offset);
-                dt_t** mpdt = &g_dllRealloc;
-                dtdtoff(mpdt, *pdt, 0);    // pointer to patch
-                dtsize_t(mpdt, e->offset); // offset of imported symbol
+                if (dataRefOffset != NULL)
+                {
+                    assert(dt_size(*pdt) == 0); // if the offset within the dt is not 0 referencing will break
+                    *dataRefOffset = e->offset;
+                }
+                pdt = dtxoff(pdt, e->var->toImport(), 0);
+                //dt_t** mpdt = &g_dllReloc;
+                //dtdtoff(mpdt, *pdt, 0);    // pointer to patch
+                //dtsize_t(mpdt, e->offset); // offset of imported symbol
             }
             else
         #endif
@@ -528,7 +536,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt)
                     return;
                 }
                 v->inuse++;
-                *pdt = Initializer_toDt(v->init);
+                *pdt = Initializer_toDt(v->init, dataRefOffset);
                 v->inuse--;
                 return;
             }
@@ -599,7 +607,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt)
         }
     };
 
-    ExpToDt v(pdt);
+    ExpToDt v(pdt, dataRefOffset);
     e->accept(&v);
     return v.pdt;
 }
@@ -659,7 +667,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
             else if (ei && tb->ty == Tsarray)
                 toDtElem(((TypeSArray *)tb), &dt, ei->exp);
             else
-                dt = Initializer_toDt(init);
+                dt = Initializer_toDt(init, NULL);
         }
         else if (v->offset >= offset)
         {
@@ -882,7 +890,7 @@ dt_t **membersToDt(ClassReferenceExp *ce, dt_t **pdt, ClassDeclaration *cd, Dts 
                 else if (ei && tb->ty == Tsarray)
                     toDtElem((TypeSArray *)tb, &dt, ei->exp);
                 else
-                    dt = Initializer_toDt(init);
+                    dt = Initializer_toDt(init, NULL);
             }
             else if (v->offset >= offset)
             {
@@ -937,7 +945,7 @@ dt_t **membersToDt(ClassReferenceExp *ce, dt_t **pdt, ClassDeclaration *cd, Dts 
                     if (!d)
                     {
                         if (v->init)
-                            d = Initializer_toDt(v->init);
+                            d = Initializer_toDt(v->init, NULL);
                         else
                             Type_toDt(vt, &d);
                     }

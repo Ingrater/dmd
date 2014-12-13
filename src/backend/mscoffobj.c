@@ -1957,6 +1957,32 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     SegData[segidx_drectve]->SDbuf->write(",DATA", 5);
 }
 
+void MsCoffObj::ref_data_symbol(Symbol *dataSym, targ_size_t offsetSym, targ_size_t offsetRef)
+{
+    /* BUG: this should go into a COMDAT if dataSym is in a COMDAT
+    * otherwise the duplicates aren't removed.
+    */
+
+    int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;  // align to NPTRSIZE
+
+    const int seg =
+        MsCoffObj::getsegment(".dllra$B", IMAGE_SCN_CNT_INITIALIZED_DATA |
+        align |
+        IMAGE_SCN_MEM_READ);
+
+    Outbuffer *buf = SegData[seg]->SDbuf;
+    if (I64)
+    {
+        MsCoffObj::reftoident(seg, buf->size(), dataSym, offsetSym, CFoff | CFoffset64);
+        buf->write64(offsetRef);
+    }
+    else
+    {
+        MsCoffObj::reftoident(seg, buf->size(), dataSym, offsetSym, CFoff);
+        buf->write32(offsetRef);
+    }
+}
+
 /*******************************
  * Update data information about symbol
  *      align for output and assign segment
