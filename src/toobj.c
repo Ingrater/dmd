@@ -163,12 +163,27 @@ void Module::genmoduleinfo()
             {
                 Symbol *s = toSymbol(m);
 
-                /* Weak references don't pull objects in from the library,
-                 * they resolve to 0 if not pulled in by something else.
-                 * Don't pull in a module just because it was imported.
-                 */
-                s->Sflags |= SFLweak;
-                dtxoff(&dt, s, 0, TYnptr);
+                #if TARGET_WINDOS
+                // if the module is not a root we must assume it might be provided by a DLL
+                if (m->isRoot()) 
+                #endif
+                {
+                    /* Weak references don't pull objects in from the library,
+                     * they resolve to 0 if not pulled in by something else.
+                     * Don't pull in a module just because it was imported.
+                     */
+                    s->Sflags |= SFLweak;
+                    dtxoff(&dt, s, 0, TYnptr);
+                }
+                #if TARGET_WINDOS
+                else
+                {
+                    Symbol *is = toImport(s);
+                    is->Sflags |= SFLweak;
+                    dtxoff(&dt, is, 0, TYnptr);
+                    objmod->ref_data_symbol(is, 0, 0);
+                }
+                #endif
             }
         }
     }
@@ -198,6 +213,7 @@ void Module::genmoduleinfo()
     //////////////////////////////////////////////
 
     objmod->moduleinfo(msym);
+    objmod->export_data_symbol(msym);
 }
 
 /* ================================================================== */

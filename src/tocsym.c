@@ -448,6 +448,8 @@ Symbol *toSymbol(Dsymbol *s)
 
 Symbol *Dsymbol::toImport()
 {
+    #if TARGET_WINDOS
+    // Only the windows plattform needs import symbols
     if (!isym)
     {
         if (!csym)
@@ -455,6 +457,12 @@ Symbol *Dsymbol::toImport()
         isym = toImport(csym);
     }
     return isym;
+    #else
+    // Return the c-symbol on all other plattforms
+    if(!csym)
+        csym = toSymbol(this);
+    return csym;
+    #endif
 }
 
 /*************************************
