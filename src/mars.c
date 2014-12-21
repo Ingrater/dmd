@@ -342,8 +342,15 @@ void genCmain(Scope *sc)
      */
     static const utf8_t cmaincode[] = "extern(C) {\n\
         int _d_run_main(int argc, char **argv, void* mainFunc);\n\
-        int _Dmain(char[][] args);\n\
-        int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
+        int _Dmain(char[][] args);\n"
+        #ifdef TARGET_WINDOS
+        "void _d_dll_fixup();\n"
+        #endif
+        "int main(int argc, char **argv) { " 
+        #ifdef TARGET_WINDOS
+        "_d_dll_fixup();"
+        #endif
+        "return _d_run_main(argc, argv, &_Dmain); }\n\
         version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
         }\n\
         ";

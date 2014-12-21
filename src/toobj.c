@@ -78,6 +78,7 @@ void Module::genmoduleinfo()
     csym->Sfl = FLdata;
 
     dt_t *dt = NULL;
+    bool dtCanBeReadonly = true; //module infos can not be readonly on windows because they need to be patched
     ClassDeclarations aclasses;
 
     //printf("members->dim = %d\n", members->dim);
@@ -178,10 +179,11 @@ void Module::genmoduleinfo()
                 #if TARGET_WINDOS
                 else
                 {
+                    dtCanBeReadonly = false;
                     Symbol *is = toImport(s);
                     is->Sflags |= SFLweak;
+                    objmod->ref_data_symbol(csym, dt_size(dt), 0);
                     dtxoff(&dt, is, 0, TYnptr);
-                    objmod->ref_data_symbol(is, 0, 0);
                 }
                 #endif
             }
@@ -207,7 +209,8 @@ void Module::genmoduleinfo()
     }
 
     csym->Sdt = dt;
-    out_readonly(csym);
+    if (dtCanBeReadonly)
+        out_readonly(csym);
     outdata(csym);
 
     //////////////////////////////////////////////
