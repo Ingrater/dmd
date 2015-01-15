@@ -52,7 +52,6 @@ struct Obj
     VIRTUAL void ehtables(Symbol *sfunc,targ_size_t size,Symbol *ehsym);
     VIRTUAL void ehsections();
     VIRTUAL void moduleinfo(Symbol *scc);
-    VIRTUAL void dllreloc(Symbol *s);
     VIRTUAL int  comdat(Symbol *);
     VIRTUAL int  comdatsize(Symbol *, targ_size_t symsize);
     VIRTUAL void setcodeseg(int seg);
@@ -150,7 +149,6 @@ struct MsCoffObj : Obj
     VIRTUAL void ehtables(Symbol *sfunc,targ_size_t size,Symbol *ehsym);
     VIRTUAL void ehsections();
     VIRTUAL void moduleinfo(Symbol *scc);
-    VIRTUAL void dllreloc(Symbol *s);
     VIRTUAL int  comdat(Symbol *);
     VIRTUAL int  comdatsize(Symbol *, targ_size_t symsize);
     VIRTUAL void setcodeseg(int seg);

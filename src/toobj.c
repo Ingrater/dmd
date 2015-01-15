@@ -335,10 +335,7 @@ void ClassDeclaration::toObjFile(bool multiobj)
         #if TARGET_WINDOS
         objmod->ref_data_symbol(csym, dt_size(dt), 0);
         Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
-        dtxoff(&dt, vtblSymbolImport, 0, TYnptr); // One indirection to much...
-        // emit relocation information
-        //dtdtoff(&g_dllReloc, dt, 0);
-        //dtsize_t(&g_dllReloc, 0);
+        dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
         #else
         dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
         #endif
@@ -377,16 +374,17 @@ void ClassDeclaration::toObjFile(bool multiobj)
     if (baseClass)
     {
         #if TARGET_WINDOS
-        // TODO check if class is really imported
-        objmod->ref_data_symbol(csym, dt_size(dt), 0);
-        Symbol *baseClassImport = Dsymbol::toImport(toSymbol(baseClass));
-        dtxoff(&dt, baseClassImport, 0, TYnptr); // One indirection to much...
-        // emit relocation information
-        //dtdtoff(&g_dllReloc, dt, 0);
-        //dtsize_t(&g_dllReloc, 0);
-        #else
-        dtxoff(&dt, toSymbol(baseClass), 0, TYnptr);
+        if (baseClass->isImportedSymbol())
+        {
+            objmod->ref_data_symbol(csym, dt_size(dt), 0);
+            Symbol *baseClassImport = Dsymbol::toImport(toSymbol(baseClass));
+            dtxoff(&dt, baseClassImport, 0, TYnptr);
+        }
+        else
         #endif
+        {
+            dtxoff(&dt, toSymbol(baseClass), 0, TYnptr);
+        }
     }
     else
         dtsize_t(&dt, 0);
@@ -770,9 +768,7 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
         // emit relocation information
         objmod->ref_data_symbol(csym, dt_size(dt), 0);
         Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
-        dtxoff(&dt, vtblSymbolImport, 0, TYnptr); // One indirection to much...
-        //dtdtoff(&g_dllReloc, dt, 0);
-        //dtsize_t(&g_dllReloc, 0);
+        dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
         #else
         dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
         #endif

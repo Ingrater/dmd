@@ -1952,9 +1952,12 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     outdata(imp_s);
 
     // now that we are done, export the original symbol
-    SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
-    SegData[segidx_drectve]->SDbuf->write(idOrg, strlen(idOrg));
-    SegData[segidx_drectve]->SDbuf->write(",DATA", 5);
+    if (global.params.dll) // only export symbols when compiling with -shared
+    {
+        SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
+        SegData[segidx_drectve]->SDbuf->write(idOrg, strlen(idOrg));
+        SegData[segidx_drectve]->SDbuf->write(",DATA", 5);
+    }
 }
 
 void MsCoffObj::ref_data_symbol(Symbol *dataSym, targ_size_t offsetSym, targ_size_t offsetRef)
@@ -2682,24 +2685,6 @@ void MsCoffObj::moduleinfo(Symbol *scc)
     if (I64)
         flags |= CFoffset64;
     SegData[seg]->SDoffset += MsCoffObj::reftoident(seg, Offset(seg), scc, 0, flags);
-}
-
-void MsCoffObj::dllreloc(Symbol *s)
-{
-    int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;
-
-    /* Dll data reallocation segment
-    */
-    const int seg =
-        MsCoffObj::getsegment(".dllra$B", IMAGE_SCN_CNT_INITIALIZED_DATA |
-        align |
-        IMAGE_SCN_MEM_READ);
-    //printf("MsCoffObj::dllreloc(%s) seg = %d:x%x\n", scc->Sident, seg, Offset(seg));
-
-    int flags = CFoff;
-    if (I64)
-        flags |= CFoffset64;
-    SegData[seg]->SDoffset += MsCoffObj::reftoident(seg, Offset(seg), s, 0, flags);
 }
 
 #endif

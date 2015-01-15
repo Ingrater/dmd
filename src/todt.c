@@ -512,9 +512,6 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
                     *dataRefOffset = e->offset;
                 }
                 pdt = dtxoff(pdt, e->var->toImport(), 0);
-                //dt_t** mpdt = &g_dllReloc;
-                //dtdtoff(mpdt, *pdt, 0);    // pointer to patch
-                //dtsize_t(mpdt, e->offset); // offset of imported symbol
             }
             else
         #endif

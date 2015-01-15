@@ -295,7 +295,6 @@ void obj_startaddress(Symbol *s)
 
 void Module::genobjfile(bool multiobj)
 {
-    //g_dllReloc = NULL;
     //EEcontext *ee = env->getEEcontext();
 
     //printf("Module::genobjfile(multiobj = %d) %s\n", multiobj, toChars());
@@ -485,26 +484,6 @@ void Module::genobjfile(bool multiobj)
      */
     if (!global.params.betterC /*|| needModuleInfo()*/)
         genmoduleinfo();
-
-    /*if (g_dllReloc != NULL)
-    {
-        dtsize_t(&g_dllReloc, 0); // pointer to patch (signal end of array)
-        dtsize_t(&g_dllReloc, 0); // offset of imported symbol
-
-        Symbol *msym = toSymbol(this);
-        char* id = (char*)malloc(strlen(msym->Sident) + 4);
-        memcpy(id, msym->Sident, strlen(msym->Sident));
-        memcpy(id + strlen(msym->Sident), "_ra", 4);
-        Symbol *ralloc_s = symbol_calloc(id);
-        slist_add(ralloc_s);
-        ralloc_s->Salignment = -1; //default alignment
-        ralloc_s->Stype = tspvoid;
-        ralloc_s->Sclass = SCglobal;
-        ralloc_s->Sfl = FLdata;
-        ralloc_s->Sdt = g_dllReloc;
-        outdata(ralloc_s);
-        objmod->dllreloc(ralloc_s);
-    }*/
 
     genhelpers(false);
 
