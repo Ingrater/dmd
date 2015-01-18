@@ -55,7 +55,7 @@ elem *toElemDtor(Expression *e, IRState *irs);
 unsigned totym(Type *tx);
 Symbol *toSymbol(Dsymbol *s);
 elem *toElem(Expression *e, IRState *irs);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs = NULL);
 
 int callSideEffectLevel(FuncDeclaration *f);
 int callSideEffectLevel(Type *t);

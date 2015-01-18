@@ -45,13 +45,19 @@ extern bool obj_includelib(const char *name);
 void obj_startaddress(Symbol *s);
 void obj_lzext(Symbol *s1,Symbol *s2);
 
+struct DataSymbolRef
+{
+    unsigned int offsetInDt; // offset of the reference within the generated dt
+    unsigned int referenceOffset; // offset of the refernce to the referenced symbol
+};
+
 void TypeInfo_toDt(dt_t **pdt, TypeInfoDeclaration *d);
-dt_t *Initializer_toDt(Initializer *init, unsigned int* dataRefOffset = NULL);
-dt_t **Type_toDt(Type *t, dt_t **pdt);
-void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt);
-void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt);
+dt_t *Initializer_toDt(Initializer *init, Array<DataSymbolRef> *dataSymbolRefs = NULL);
+dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs = NULL);
+void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
+void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 Symbol *toSymbol(Dsymbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs = NULL);
 
 void toDebug(EnumDeclaration *ed);
 void toDebug(StructDeclaration *sd);
@@ -279,9 +285,35 @@ void ClassDeclaration::toObjFile(bool multiobj)
     // Generate static initializer
     sinit->Sclass = scclass;
     sinit->Sfl = FLdata;
-    ClassDeclaration_toDt(this, &sinit->Sdt);
+
+    #if TARGET_WINDOS
+    Array<DataSymbolRef> dataSymbolRefs;
+    ClassDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
+    if (dataSymbolRefs.dim == 0) // can only be read-only if no data references have to be relocated at runtime
+        out_readonly(sinit);
+    for(unsigned int i=0; i < dataSymbolRefs.dim; i++)
+    {
+        objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
+    }
+    #else
+    ClassDeclaration_toDt(this, &sinit->Sdt, NULL);
     out_readonly(sinit);
+    #endif
     outdata(sinit);
+    // the init symbol of a type info is referenced directly, so it needs to be exported
+    if (isExport())
+    {
+        ClassDeclaration* base = baseClass;
+        while (base)
+        {
+            if (base->ident == Id::TypeInfo)
+            {
+                objmod->export_data_symbol(sinit);
+                break;
+            }
+            base = base->baseClass;
+        }
+    }
 
     //////////////////////////////////////////////
 
@@ -918,9 +950,19 @@ void StructDeclaration::toObjFile(bool multiobj)
             }
 
             sinit->Sfl = FLdata;
+            #if TARGET_WINDOS
+            Array<DataSymbolRef> dataSymbolRefs;
+            StructDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
+            dt_optimize(sinit->Sdt);
+            if(dataSymbolRefs.dim == 0) 
+                out_readonly(sinit); // can only be read-only if no data symbol references need to be relocated
+            for(unsigned int i=0; i < dataSymbolRefs.dim; i++)
+                objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
+            #else
             StructDeclaration_toDt(this, &sinit->Sdt);
             dt_optimize(sinit->Sdt);
             out_readonly(sinit);    // put in read-only segment
+            #endif
             outdata(sinit);
         }
 
@@ -998,10 +1040,14 @@ void VarDeclaration::toObjFile(bool multiobj)
         if (init)
         {
             unsigned int dataRefOffset = 0xFFFFFFFF;
-            s->Sdt = Initializer_toDt(init, &dataRefOffset);
+            
             #if TARGET_WINDOS
-            if (dataRefOffset != 0xFFFFFFFF)
-                objmod->ref_data_symbol(s, 0, dataRefOffset); // this assumes that references to data symbols are always directly at the symbol without offset
+            Array<DataSymbolRef> dataSymbolRefs; 
+            s->Sdt = Initializer_toDt(init, &dataSymbolRefs);
+            for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
+                objmod->ref_data_symbol(s, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
+            #else
+            s->Sdt = Initializer_toDt(init);
             #endif
 
             // Look for static array that is block initialized
@@ -1128,6 +1174,11 @@ void TypeInfoDeclaration::toObjFile(bool multiobj)
     {
         s->Sclass = SCglobal;
         dt2common(&s->Sdt);
+    }
+
+    for (unsigned int i = 0; i < nextDataSymbolOffset; i++)
+    {
+        objmod->ref_data_symbol(s, dataSymbolOffsets[i], 0);
     }
 
     outdata(s);

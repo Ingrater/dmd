@@ -40,27 +40,33 @@
 
 typedef Array<struct dt_t *> Dts;
 
-dt_t **Type_toDt(Type *t, dt_t **pdt);
+struct DataSymbolRef
+{
+    unsigned int offsetInDt; // offset of the reference within the generated dt
+    unsigned int referenceOffset; // offset of the refernce to the referenced symbol
+};
+
+dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs = NULL);
 dt_t **toDtElem(TypeSArray *tsa, dt_t **pdt, Expression *e);
-void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt);
-void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteType);
-void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt);
+void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
+void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteType, Array<DataSymbolRef> *dataSymbolRefs);
+void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 dt_t **ClassReferenceExp_toDt(ClassReferenceExp *e, dt_t **pdt, int off);
 dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt);
 dt_t **membersToDt(ClassReferenceExp *ce, dt_t **pdt, ClassDeclaration *cd, Dts *dts);
 dt_t **ClassReferenceExp_toDt(ClassReferenceExp *e, dt_t **pdt, int off);
 Symbol *toSymbol(Dsymbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset = NULL);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs = NULL);
 
 /* ================================================================ */
 
-dt_t *Initializer_toDt(Initializer *init, unsigned int* dataRefOffset)
+dt_t *Initializer_toDt(Initializer *init, Array<DataSymbolRef> *dataSymbolRefs)
 {
     class InitToDt : public Visitor
     {
     public:
         dt_t *result;
-        unsigned int* dataRefOffset;
+        Array<DataSymbolRef> *dataSymbolRefs;
 
         InitToDt()
             : result(NULL)
@@ -111,7 +117,7 @@ dt_t *Initializer_toDt(Initializer *init, unsigned int* dataRefOffset)
                 //printf("\tindex[%d] = %p, length = %u, dim = %u\n", i, idx, length, ai->dim);
 
                 assert(length < ai->dim);
-                dt_t *dt = Initializer_toDt(ai->value[i], dataRefOffset);
+                dt_t *dt = Initializer_toDt(ai->value[i], dataSymbolRefs);
                 if (dts[length])
                     error(ai->loc, "duplicate initializations for index %d", length);
                 dts[length] = dt;
@@ -188,28 +194,28 @@ dt_t *Initializer_toDt(Initializer *init, unsigned int* dataRefOffset)
         {
             //printf("ExpInitializer::toDt() %s\n", ei->exp->toChars());
             ei->exp = ei->exp->optimize(WANTvalue);
-            Expression_toDt(ei->exp, &result, dataRefOffset);
+            Expression_toDt(ei->exp, &result, dataSymbolRefs);
         }
     };
 
     InitToDt v;
-    v.dataRefOffset = dataRefOffset;
+    v.dataSymbolRefs = dataSymbolRefs;
     init->accept(&v);
     return v.result;
 }
 
 /* ================================================================ */
 
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs)
 {
     class ExpToDt : public Visitor
     {
     public:
         dt_t **pdt;
-        unsigned int *dataRefOffset;
+        Array<DataSymbolRef> *dataSymbolRefs;
 
-        ExpToDt(dt_t **pdt, unsigned int* dataRefOffset)
-            : pdt(pdt), dataRefOffset(dataRefOffset)
+        ExpToDt(dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs)
+            : pdt(pdt), dataSymbolRefs(dataSymbolRefs)
         {
         }
 
@@ -480,7 +486,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
                     if (tb->ty == Tsarray)
                         toDtElem(((TypeSArray *)tb), pdt, e);
                     else
-                        Expression_toDt(e, pdt);           // convert e to an initializer dt
+                        Expression_toDt(e, pdt, dataSymbolRefs);           // convert e to an initializer dt
 
                     offset = vd->offset + vd->type->size();
                 }
@@ -506,11 +512,11 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
         #if TARGET_WINDOS
             if (e->var->isImportedSymbol())
             {
-                if (dataRefOffset != NULL)
-                {
-                    assert(dt_size(*pdt) == 0); // if the offset within the dt is not 0 referencing will break
-                    *dataRefOffset = e->offset;
-                }
+                assert(dataSymbolRefs != NULL);
+                DataSymbolRef ref;
+                ref.offsetInDt = dt_size(*pdt);
+                ref.referenceOffset = e->offset;
+                dataSymbolRefs->push(ref);
                 pdt = dtxoff(pdt, e->var->toImport(), 0);
             }
             else
@@ -533,14 +539,14 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
                     return;
                 }
                 v->inuse++;
-                *pdt = Initializer_toDt(v->init, dataRefOffset);
+                *pdt = Initializer_toDt(v->init, dataSymbolRefs);
                 v->inuse--;
                 return;
             }
             SymbolDeclaration *sd = e->var->isSymbolDeclaration();
             if (sd && sd->dsym)
             {
-                StructDeclaration_toDt(sd->dsym, pdt);
+                StructDeclaration_toDt(sd->dsym, pdt, dataSymbolRefs);
                 return;
             }
         #if 0
@@ -604,7 +610,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
         }
     };
 
-    ExpToDt v(pdt, dataRefOffset);
+    ExpToDt v(pdt, dataSymbolRefs);
     e->accept(&v);
     return v.pdt;
 }
@@ -613,7 +619,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, unsigned int* dataRefOffset)
 
 // Generate the data for the static initializer.
 
-void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt)
+void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs)
 {
     //printf("ClassDeclaration::toDt(this = '%s')\n", cd->toChars());
 
@@ -623,19 +629,19 @@ void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt)
         dtsize_t(pdt, 0);                    // monitor
 
     // Put in the rest
-    membersToDt(cd, pdt, cd);
+    membersToDt(cd, pdt, cd, dataSymbolRefs);
 
     //printf("-ClassDeclaration::toDt(this = '%s')\n", cd->toChars());
 }
 
-void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteType)
+void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteType, Array<DataSymbolRef> *dataSymbolRefs)
 {
     unsigned offset;
 
     //printf("ClassDeclaration::toDt2(this = '%s', cd = '%s')\n", cd->toChars(), concreteType->toChars());
     if (cd->baseClass)
     {
-        membersToDt(cd->baseClass, pdt, concreteType);
+        membersToDt(cd->baseClass, pdt, concreteType, dataSymbolRefs);
         offset = cd->baseClass->structsize;
     }
     else
@@ -654,6 +660,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
         //printf("\t\tv = '%s' v->offset = %2d, offset = %2d\n", v->toChars(), v->offset, offset);
         dt_t *dt = NULL;
         Initializer *init = v->init;
+        unsigned int oldDataSymbolRefsDim = (dataSymbolRefs) ? dataSymbolRefs->dim : 0;
         if (init)
         {
             //printf("\t\t%s has initializer %s\n", v->toChars(), init->toChars());
@@ -664,7 +671,9 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
             else if (ei && tb->ty == Tsarray)
                 toDtElem(((TypeSArray *)tb), &dt, ei->exp);
             else
-                dt = Initializer_toDt(init, NULL);
+            {
+                dt = Initializer_toDt(init, dataSymbolRefs);
+            }
         }
         else if (v->offset >= offset)
         {
@@ -679,6 +688,16 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
             {
                 if (offset < v->offset)
                     dtnzeros(pdt, v->offset - offset);
+                #if TARGET_WINDOS
+                unsigned int newDataSymbolRefsDim = (dataSymbolRefs) ? dataSymbolRefs->dim : 0;
+                if (newDataSymbolRefsDim > oldDataSymbolRefsDim)
+                {
+                    for (unsigned int i = oldDataSymbolRefsDim; i < newDataSymbolRefsDim; i++)
+                    {
+                        (*dataSymbolRefs)[i].offsetInDt += dt_size(*pdt);   
+                    }
+                }
+                #endif
                 dtcat(pdt, dt);
                 offset = v->offset + v->type->size();
             }
@@ -700,7 +719,21 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
             {
                 if (offset < b->offset)
                     dtnzeros(pdt, b->offset - offset);
-                dtxoff(pdt, toSymbol(cd2), csymoffset);
+                #if TARGET_WINDOS
+                if (cd2->isImportedSymbol())
+                {
+                    assert(dataSymbolRefs != NULL);
+                    DataSymbolRef ref;
+                    ref.offsetInDt = dt_size(*pdt);
+                    ref.referenceOffset = csymoffset;
+                    dataSymbolRefs->push(ref);
+                    dtxoff(pdt, cd2->toImport(), 0);
+                }
+                else
+                #endif
+                {
+                    dtxoff(pdt, toSymbol(cd2), csymoffset);
+                }
                 break;
             }
         }
@@ -711,7 +744,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
         dtnzeros(pdt, cd->structsize - offset);
 }
 
-void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt)
+void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs)
 {
     //printf("StructDeclaration::toDt(), this='%s'\n", sd->toChars());
     StructLiteralExp *sle = StructLiteralExp::create(sd->loc, sd, NULL);
@@ -720,20 +753,21 @@ void StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt)
 
     //printf("sd->toDt sle = %s\n", sle->toChars());
     sle->type = sd->type;
-    Expression_toDt(sle, pdt);
+    Expression_toDt(sle, pdt, dataSymbolRefs);
 }
 
 /* ================================================================= */
 
-dt_t **Type_toDt(Type *t, dt_t **pdt)
+dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs)
 {
     class TypeToDt : public Visitor
     {
     public:
         dt_t **pdt;
+        Array<DataSymbolRef> *dataSymbolRefs;
 
-        TypeToDt(dt_t **pdt)
-            : pdt(pdt)
+        TypeToDt(dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs)
+            : pdt(pdt), dataSymbolRefs(dataSymbolRefs)
         {
         }
 
@@ -757,11 +791,11 @@ dt_t **Type_toDt(Type *t, dt_t **pdt)
 
         void visit(TypeStruct *t)
         {
-            StructDeclaration_toDt(t->sym, pdt);
+            StructDeclaration_toDt(t->sym, pdt, dataSymbolRefs);
         }
     };
 
-    TypeToDt v(pdt);
+    TypeToDt v(pdt, dataSymbolRefs);
     t->accept(&v);
     return v.pdt;
 }

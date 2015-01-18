@@ -1906,8 +1906,11 @@ void MsCoffObj::export_symbol(Symbol *s,unsigned argsize)
     char *destr = obj_mangle2(s, dest);
 
     //printf("MsCoffObj::export_symbol(%s,%d)\n",s->Sident,argsize);
-    SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
-    SegData[segidx_drectve]->SDbuf->write(dest, strlen(dest));
+    if (global.params.dll) // only export symbols when compiling with -shared
+    {
+        SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
+        SegData[segidx_drectve]->SDbuf->write(dest, strlen(dest));
+    }
 }
 
 void MsCoffObj::export_data_symbol(Symbol *s)
