@@ -1703,7 +1703,7 @@ bool VarDeclaration::needThis()
 
 bool VarDeclaration::isExport()
 {
-    if ((storage_class & STCgshared) == 0) // only export __gshared variables
+    if ((storage_class & STCgshared || storage_class & STCshared) == 0) // don't export TLS variables
         return false;
     if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
         return true;

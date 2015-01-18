@@ -3939,7 +3939,12 @@ elem *toElem(Expression *e, IRState *irs)
 
                 /* The offset from cdfrom=>cdto can only be determined at runtime.
                  */
-                elem *ep = el_param(el_ptr(toSymbol(cdto)), e);
+                elem *ep = NULL;
+                #if TARGET_WINDOS
+                ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(cdto->toImport())) : el_ptr(toSymbol(cdto)), e);
+                #else
+                ep = el_param(el_ptr(toSymbol(cdto)), e);
+                #endif
                 e = el_bin(OPcall, TYnptr, el_var(rtlsym[rtl]), ep);
                 goto Lret;
             }
