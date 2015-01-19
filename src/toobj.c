@@ -964,6 +964,8 @@ void StructDeclaration::toObjFile(bool multiobj)
             out_readonly(sinit);    // put in read-only segment
             #endif
             outdata(sinit);
+            if (isExport())
+              objmod->export_data_symbol(sinit);
         }
 
         // Put out the members

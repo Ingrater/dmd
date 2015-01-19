@@ -1009,7 +1009,7 @@ elem *toElem(Expression *e, IRState *irs)
 
             #if TARGET_WINDOS
             // only windows needs special handling for imported symbols
-            if (se->var->isImportedSymbol())
+            if (se->var->isImportedSymbol() || (se->var->isSymbolDeclaration() && se->var->isSymbolDeclaration()->dsym->isImportedSymbol()))
             {
                 assert(se->op == TOKvar);
                 e = el_var(se->var->toImport());
