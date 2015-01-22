@@ -433,7 +433,9 @@ typedef struct block
 #if MARS
         struct
         {   Symbol *catchtype;          // one type for each catch block
+            bool imported;
             #define Bcatchtype BS.BIJCATCH.catchtype
+            #define Bcatchimported BS.BIJCATCH.imported
         } BIJCATCH;                     // BCjcatch
 #endif
 #if NTEXCEPTIONS || MARS

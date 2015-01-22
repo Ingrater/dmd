@@ -1027,7 +1027,23 @@ public:
                 cs->var->csym = tryblock->jcatchvar;
             block *bcatch = blx->curblock;
             if (cs->type)
-                bcatch->Bcatchtype = toSymbol(cs->type->toBasetype());
+            {
+                Type *basetype = cs->type->toBasetype();
+                #if TARGET_WINDOS
+                bcatch->Bcatchimported = false;
+                ClassDeclaration* basetypeClass = basetype->isClassHandle();
+                assert(basetypeClass != NULL); // D can only catch classes
+                if (basetypeClass->isImportedSymbol())
+                {
+                    bcatch->Bcatchimported = true;
+                    bcatch->Bcatchtype = basetypeClass->toImport();
+                }
+                else
+                #endif
+                {
+                    bcatch->Bcatchtype = toSymbol(basetype);
+                }
+            }
             tryblock->appendSucc(bcatch);
             block_goto(blx, BCjcatch, NULL);
             if (cs->handler != NULL)
