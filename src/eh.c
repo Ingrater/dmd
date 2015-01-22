@@ -380,7 +380,7 @@ void except_fillInEHTable(symbol *s, Array<DataSymbolRef> *dataSymbolRefs)
                 {
                     assert(dataSymbolRefs != NULL);
                     DataSymbolRef ref;
-                    ref.offsetInDt = dt_size(*pdt);
+                    ref.offsetInDt = sz;
                     ref.referenceOffset = 0;
                     dataSymbolRefs->push(ref);
                     pdt = dtxoff(pdt, catchtype, 0, TYjhandle);

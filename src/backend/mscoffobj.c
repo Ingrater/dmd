@@ -1909,7 +1909,7 @@ void MsCoffObj::export_symbol(Symbol *s,unsigned argsize)
     if (global.params.dll) // only export symbols when compiling with -shared
     {
         SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
-        SegData[segidx_drectve]->SDbuf->write(dest, strlen(dest));
+        SegData[segidx_drectve]->SDbuf->write(destr, strlen(destr));
     }
 }
 
