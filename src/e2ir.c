@@ -1009,7 +1009,7 @@ elem *toElem(Expression *e, IRState *irs)
 
             #if TARGET_WINDOS
             // only windows needs special handling for imported symbols
-            if (se->var->isImportedSymbol() || (se->var->isSymbolDeclaration() && se->var->isSymbolDeclaration()->dsym->isImportedSymbol()))
+            if (global.params.mscoff && (se->var->isImportedSymbol() || (se->var->isSymbolDeclaration() && se->var->isSymbolDeclaration()->dsym->isImportedSymbol())))
             {
                 assert(se->op == TOKvar);
                 e = el_var(se->var->toImport());
@@ -3941,9 +3941,15 @@ elem *toElem(Expression *e, IRState *irs)
                  */
                 elem *ep = NULL;
                 #if TARGET_WINDOS
-                ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(cdto->toImport())) : el_ptr(toSymbol(cdto)), e);
+                if (global.params.mscoff)
+                {
+                    ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(cdto->toImport())) : el_ptr(toSymbol(cdto)), e);
+                }
+                else
                 #else
-                ep = el_param(el_ptr(toSymbol(cdto)), e);
+                {
+                    ep = el_param(el_ptr(toSymbol(cdto)), e);
+                }
                 #endif
                 e = el_bin(OPcall, TYnptr, el_var(rtlsym[rtl]), ep);
                 goto Lret;

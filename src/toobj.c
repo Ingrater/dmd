@@ -172,7 +172,7 @@ void Module::genmoduleinfo()
 
                 #if TARGET_WINDOS
                 // if the module is not a root we must assume it might be provided by a DLL
-                if (m->isRoot()) 
+                if (!global.params.mscoff || m->isRoot())
                 #endif
                 {
                     /* Weak references don't pull objects in from the library,
@@ -287,18 +287,23 @@ void ClassDeclaration::toObjFile(bool multiobj)
     sinit->Sfl = FLdata;
 
     #if TARGET_WINDOS
-    Array<DataSymbolRef> dataSymbolRefs;
-    ClassDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
-    if (dataSymbolRefs.dim == 0) // can only be read-only if no data references have to be relocated at runtime
-        out_readonly(sinit);
-    for(unsigned int i=0; i < dataSymbolRefs.dim; i++)
+    if (global.params.mscoff)
     {
-        objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
+        Array<DataSymbolRef> dataSymbolRefs;
+        ClassDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
+        if (dataSymbolRefs.dim == 0) // can only be read-only if no data references have to be relocated at runtime
+            out_readonly(sinit);
+        for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
+        {
+            objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
+        }
     }
-    #else
-    ClassDeclaration_toDt(this, &sinit->Sdt, NULL);
-    out_readonly(sinit);
+    else
     #endif
+    {
+        ClassDeclaration_toDt(this, &sinit->Sdt, NULL);
+        out_readonly(sinit);
+    }
     outdata(sinit);
     // the init symbol of a type info is referenced directly, so it needs to be exported
     if (isExport())
@@ -365,12 +370,17 @@ void ClassDeclaration::toObjFile(bool multiobj)
     if (Type::typeinfoclass)
     {
         #if TARGET_WINDOS
-        objmod->ref_data_symbol(csym, dt_size(dt), 0);
-        Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
-        dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
-        #else
-        dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
+        if (global.params.mscoff)
+        {
+            objmod->ref_data_symbol(csym, dt_size(dt), 0);
+            Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
+            dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
+        }
+        else
         #endif
+        {
+            dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
+        }
     }
     else
         dtsize_t(&dt, 0);                // BUG: should be an assert()
@@ -406,7 +416,7 @@ void ClassDeclaration::toObjFile(bool multiobj)
     if (baseClass)
     {
         #if TARGET_WINDOS
-        if (baseClass->isImportedSymbol())
+        if (global.params.mscoff && baseClass->isImportedSymbol())
         {
             objmod->ref_data_symbol(csym, dt_size(dt), 0);
             Symbol *baseClassImport = Dsymbol::toImport(toSymbol(baseClass));
@@ -797,13 +807,18 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
     if (Type::typeinfoclass)
     {
         #if TARGET_WINDOS
-        // emit relocation information
-        objmod->ref_data_symbol(csym, dt_size(dt), 0);
-        Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
-        dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
-        #else
-        dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
+        if (global.params.mscoff)
+        {
+            // emit relocation information
+            objmod->ref_data_symbol(csym, dt_size(dt), 0);
+            Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
+            dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
+        }
+        else
         #endif
+        {
+            dtxoff(&dt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for ClassInfo
+        }
     }
     else
         dtsize_t(&dt, 0);                // BUG: should be an assert()
@@ -951,18 +966,24 @@ void StructDeclaration::toObjFile(bool multiobj)
 
             sinit->Sfl = FLdata;
             #if TARGET_WINDOS
-            Array<DataSymbolRef> dataSymbolRefs;
-            StructDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
-            dt_optimize(sinit->Sdt);
-            if(dataSymbolRefs.dim == 0) 
-                out_readonly(sinit); // can only be read-only if no data symbol references need to be relocated
-            for(unsigned int i=0; i < dataSymbolRefs.dim; i++)
-                objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
-            #else
-            StructDeclaration_toDt(this, &sinit->Sdt);
-            dt_optimize(sinit->Sdt);
-            out_readonly(sinit);    // put in read-only segment
+            if (global.params.mscoff)
+            {
+                Array<DataSymbolRef> dataSymbolRefs;
+                StructDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
+                dt_optimize(sinit->Sdt);
+                if (dataSymbolRefs.dim == 0)
+                    out_readonly(sinit); // can only be read-only if no data symbol references need to be relocated
+                for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
+                    objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
+            }
+            else
             #endif
+            {
+                StructDeclaration_toDt(this, &sinit->Sdt, NULL);
+                dt_optimize(sinit->Sdt);
+                out_readonly(sinit);    // put in read-only segment
+            }
+
             outdata(sinit);
             if (isExport())
               objmod->export_data_symbol(sinit);
@@ -1044,13 +1065,18 @@ void VarDeclaration::toObjFile(bool multiobj)
             unsigned int dataRefOffset = 0xFFFFFFFF;
             
             #if TARGET_WINDOS
-            Array<DataSymbolRef> dataSymbolRefs; 
-            s->Sdt = Initializer_toDt(init, &dataSymbolRefs);
-            for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
-                objmod->ref_data_symbol(s, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
-            #else
-            s->Sdt = Initializer_toDt(init);
+            if (global.params.mscoff)
+            {
+                Array<DataSymbolRef> dataSymbolRefs;
+                s->Sdt = Initializer_toDt(init, &dataSymbolRefs);
+                for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
+                    objmod->ref_data_symbol(s, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
+            }
+            else
             #endif
+            {
+                s->Sdt = Initializer_toDt(init);
+            }
 
             // Look for static array that is block initialized
             Type *tb;

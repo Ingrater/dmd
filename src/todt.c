@@ -509,8 +509,8 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 e->error("non-constant expression %s", e->toChars());
                 return;
             }
-        #if TARGET_WINDOS
-            if (e->var->isImportedSymbol())
+            #if TARGET_WINDOS
+            if (global.params.mscoff && e->var->isImportedSymbol())
             {
                 assert(dataSymbolRefs != NULL);
                 DataSymbolRef ref;
@@ -520,8 +520,10 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 pdt = dtxoff(pdt, e->var->toImport(), 0);
             }
             else
-        #endif
-              pdt =  dtxoff(pdt, toSymbol(e->var), e->offset);
+            #endif
+            {
+                pdt = dtxoff(pdt, toSymbol(e->var), e->offset);
+            }
         }
 
         void visit(VarExp *e)
@@ -690,7 +692,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
                     dtnzeros(pdt, v->offset - offset);
                 #if TARGET_WINDOS
                 unsigned int newDataSymbolRefsDim = (dataSymbolRefs) ? dataSymbolRefs->dim : 0;
-                if (newDataSymbolRefsDim > oldDataSymbolRefsDim)
+                if (global.params.mscoff && newDataSymbolRefsDim > oldDataSymbolRefsDim)
                 {
                     for (unsigned int i = oldDataSymbolRefsDim; i < newDataSymbolRefsDim; i++)
                     {
@@ -720,7 +722,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
                 if (offset < b->offset)
                     dtnzeros(pdt, b->offset - offset);
                 #if TARGET_WINDOS
-                if (cd2->isImportedSymbol())
+                if (global.params.mscoff && cd2->isImportedSymbol())
                 {
                     assert(dataSymbolRefs != NULL);
                     DataSymbolRef ref;

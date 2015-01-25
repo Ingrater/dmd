@@ -928,7 +928,12 @@ void FuncDeclaration::toObjFile(bool multiobj)
 #if TARGET_WINDOS
             if (global.params.mscoff)
             {
-                objmod->includelib("LIBCMT");
+                if (global.params.dll)
+                {
+                    objmod->includelib("msvcrt");
+                }
+                else
+                    objmod->includelib("LIBCMT");
                 objmod->includelib("OLDNAMES");
             }
             else
@@ -945,7 +950,10 @@ void FuncDeclaration::toObjFile(bool multiobj)
             if (global.params.mscoff)
             {
                 objmod->includelib("uuid");
-                objmod->includelib("LIBCMT");
+                if (global.params.dll)
+                    objmod->includelib("msvcrt");
+                else
+                    objmod->includelib("LIBCMT");
                 objmod->includelib("OLDNAMES");
                 objmod->ehsections();   // initialize exception handling sections
             }
@@ -963,7 +971,7 @@ void FuncDeclaration::toObjFile(bool multiobj)
             if (global.params.mscoff)
             {
                 objmod->includelib("uuid");
-                objmod->includelib("LIBCMT");
+                objmod->includelib("msvcrt");
                 objmod->includelib("OLDNAMES");
                 objmod->ehsections();   // initialize exception handling sections
             }

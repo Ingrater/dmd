@@ -257,7 +257,7 @@ private:
     static void dtxoffVtbl(TypeInfoDeclaration *d, dt_t **pdt, ClassDeclaration *cd)
     {
         #if TARGET_WINDOS
-        if (Type::typeinfoarray->isImportedSymbol())
+        if (global.params.mscoff && Type::typeinfoarray->isImportedSymbol())
         {
             d->dataSymbolOffsets[d->nextDataSymbolOffset++] = dt_size(*pdt);
             dtxoff(pdt, Dsymbol::toImport(cd->toVtblSymbol()), 0);
@@ -272,7 +272,7 @@ private:
     static void dtxoffTypeInfo(TypeInfoDeclaration *d, dt_t **pdt, TypeInfoDeclaration *ti)
     {
         #if TARGET_WINDOS
-        if (ti->isImportedSymbol())
+        if (global.params.mscoff && ti->isImportedSymbol())
         {
             d->dataSymbolOffsets[d->nextDataSymbolOffset++] = dt_size(*pdt);
             dtxoff(pdt, ti->toImport(), 0);

@@ -1033,7 +1033,7 @@ public:
                 bcatch->Bcatchimported = false;
                 ClassDeclaration* basetypeClass = basetype->isClassHandle();
                 assert(basetypeClass != NULL); // D can only catch classes
-                if (basetypeClass->isImportedSymbol())
+                if (global.params.mscoff && basetypeClass->isImportedSymbol())
                 {
                     bcatch->Bcatchimported = true;
                     bcatch->Bcatchtype = basetypeClass->toImport();
