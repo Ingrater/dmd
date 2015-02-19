@@ -1265,6 +1265,14 @@ public:
         flags &= ~IGNORE_CONST;
     }
 
+    void visit(TypeTuple *type)
+    {
+        for (size_t i = 0; i < type->arguments->dim; ++i)
+        {
+            mangleParameter((*type->arguments)[i]);
+        }
+    }
+
     char *mangleOf(Dsymbol *s)
     {
         VarDeclaration *vd = s->isVarDeclaration();
