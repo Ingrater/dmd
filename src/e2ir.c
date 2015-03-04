@@ -3945,8 +3945,8 @@ elem *toElem(Expression *e, IRState *irs)
                 {
                     ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(cdto->toImport())) : el_ptr(toSymbol(cdto)), e);
                 }
-                else
                 #else
+                else
                 {
                     ep = el_param(el_ptr(toSymbol(cdto)), e);
                 }
