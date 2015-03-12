@@ -724,7 +724,14 @@ public:
 
         //printf("SwitchErrorStatement::toIR()\n");
 
-        elem *efilename = el_ptr(toSymbol(blx->module));
+        elem *efilename = NULL;
+        #if TARGET_WINDOS
+        if (global.params.mscoff && !blx->module->isRoot())
+          efilename = el_una(OPind, TYnptr, el_ptr(blx->module->toImport()));
+        #endif
+        if (efilename == NULL)
+          efilename = el_ptr(toSymbol(blx->module));
+
         elem *elinnum = el_long(TYint, s->loc.linnum);
         elem *e = el_bin(OPcall, TYvoid, el_var(rtlsym[RTLSYM_DSWITCHERR]), el_param(elinnum, efilename));
         block_appendexp(blx->curblock, e);
