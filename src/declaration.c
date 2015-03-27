@@ -598,6 +598,7 @@ OverDeclaration::OverDeclaration(Dsymbol *s, bool hasOverloads)
     : Declaration(s->ident)
 {
     this->aliassym = s;
+    this->overnext = NULL;
 
     this->hasOverloads = hasOverloads;
     if (hasOverloads)
