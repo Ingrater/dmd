@@ -482,6 +482,9 @@ void Module::genobjfile(bool multiobj)
     if (massert && this->isRoot())
       objmod->export_symbol(massert, 0);
 
+    if (marray && this->isRoot())
+      objmod->export_symbol(marray, 0);
+
     /* Always generate module info, because of templates and -cov.
      * But module info needs the runtime library, so disable it for betterC.
      */
