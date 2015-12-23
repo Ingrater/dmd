@@ -45,13 +45,7 @@ extern bool obj_includelib(const char *name);
 void obj_startaddress(Symbol *s);
 void obj_lzext(Symbol *s1,Symbol *s2);
 
-struct DataSymbolRef
-{
-    unsigned int offsetInDt; // offset of the reference within the generated dt
-    unsigned int referenceOffset; // offset of the refernce to the referenced symbol
-};
-
-void TypeInfo_toDt(dt_t **pdt, TypeInfoDeclaration *d);
+void TypeInfo_toDt(dt_t **pdt, TypeInfoDeclaration *d, Array<DataSymbolRef>* dataSymbolRefs);
 dt_t *Initializer_toDt(Initializer *init, Array<DataSymbolRef> *dataSymbolRefs = NULL);
 dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs = NULL);
 void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
@@ -84,7 +78,9 @@ void Module::genmoduleinfo()
     csym->Sfl = FLdata;
 
     dt_t *dt = NULL;
-    bool dtCanBeReadonly = true; //module infos can not be readonly on windows because they need to be patched
+    #if TARGET_WINDOS
+    Array<DataSymbolRef> dataSymbolRefs;
+    #endif
     ClassDeclarations aclasses;
 
     //printf("members->dim = %d\n", members->dim);
@@ -185,10 +181,12 @@ void Module::genmoduleinfo()
                 #if TARGET_WINDOS
                 else
                 {
-                    dtCanBeReadonly = false;
                     Symbol *is = toImport(s);
                     is->Sflags |= SFLweak;
-                    objmod->ref_data_symbol(csym, dt_size(dt), 0);
+                    DataSymbolRef newRef;
+                    newRef.offsetInDt = dt_size(dt);
+                    newRef.referenceOffset = 0;
+                    dataSymbolRefs.push(newRef);
                     dtxoff(&dt, is, 0, TYnptr);
                 }
                 #endif
@@ -215,9 +213,17 @@ void Module::genmoduleinfo()
     }
 
     csym->Sdt = dt;
-    if (dtCanBeReadonly)
-        out_readonly(csym);
+
+    #if TARGET_WINDOS
+    // if there are no cross-dll data symbol references we can make the module info constant
+    if (dataSymbolRefs.dim == 0)
+      out_readonly(csym);
     outdata(csym);
+    objmod->ref_data_symbol(csym, dataSymbolRefs.data, dataSymbolRefs.dim);
+    #else
+    out_readonly(csym);
+    outdata(csym);
+    #endif
 
     //////////////////////////////////////////////
 
@@ -286,25 +292,14 @@ void ClassDeclaration::toObjFile(bool multiobj)
     sinit->Sclass = scclass;
     sinit->Sfl = FLdata;
 
-    #if TARGET_WINDOS
-    if (global.params.mscoff)
-    {
-        Array<DataSymbolRef> dataSymbolRefs;
-        ClassDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
-        if (dataSymbolRefs.dim == 0) // can only be read-only if no data references have to be relocated at runtime
-            out_readonly(sinit);
-        for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
-        {
-            objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
-        }
-    }
-    else
-    #endif
-    {
-        ClassDeclaration_toDt(this, &sinit->Sdt, NULL);
-        out_readonly(sinit);
-    }
+    Array<DataSymbolRef> dataSymbolRefsInit;
+    ClassDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefsInit);
+    if (dataSymbolRefsInit.dim == 0) // can only be read-only if no data references have to be relocated at runtime
+      out_readonly(sinit);
     outdata(sinit);
+
+    objmod->ref_data_symbol(sinit, dataSymbolRefsInit.data, dataSymbolRefsInit.dim);
+
     // the init symbol of a type info is referenced directly, so it needs to be exported
     if (isExport())
     {
@@ -353,6 +348,9 @@ void ClassDeclaration::toObjFile(bool multiobj)
        }
      */
     dt_t *dt = NULL;
+    #ifdef TARGET_WINDOS
+    Array<DataSymbolRef> dataSymbolRefs;
+    #endif
     unsigned classinfo_size = global.params.isLP64 ? CLASSINFO_SIZE_64 : CLASSINFO_SIZE;    // must be ClassInfo.size
     offset = classinfo_size;
     if (Type::typeinfoclass)
@@ -372,7 +370,10 @@ void ClassDeclaration::toObjFile(bool multiobj)
         #if TARGET_WINDOS
         if (global.params.mscoff)
         {
-            objmod->ref_data_symbol(csym, dt_size(dt), 0);
+            DataSymbolRef newRef;
+            newRef.offsetInDt = dt_size(dt);
+            newRef.referenceOffset = 0;
+            dataSymbolRefs.push(newRef);
             Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
             dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
         }
@@ -418,7 +419,10 @@ void ClassDeclaration::toObjFile(bool multiobj)
         #if TARGET_WINDOS
         if (global.params.mscoff && baseClass->isImportedSymbol())
         {
-            objmod->ref_data_symbol(csym, dt_size(dt), 0);
+            DataSymbolRef newRef;
+            newRef.offsetInDt = dt_size(dt);
+            newRef.referenceOffset = 0;
+            dataSymbolRefs.push(newRef);
             Symbol *baseClassImport = Dsymbol::toImport(toSymbol(baseClass));
             dtxoff(&dt, baseClassImport, 0, TYnptr);
         }
@@ -625,6 +629,12 @@ void ClassDeclaration::toObjFile(bool multiobj)
     outdata(csym);
     if (isExport())
         objmod->export_data_symbol(csym);
+    #ifdef TARGET_WINDOS
+    if (dataSymbolRefs.dim > 0)
+    {
+        objmod->ref_data_symbol(csym, dataSymbolRefs.data, dataSymbolRefs.dim);
+    }
+    #endif
 
     //////////////////////////////////////////////
 
@@ -803,6 +813,10 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
        }
      */
     dt_t *dt = NULL;
+    #ifdef TARGET_WINDOS
+    DataSymbolRef vtblRef;
+    bool hasVtblRef = false;
+    #endif
 
     if (Type::typeinfoclass)
     {
@@ -810,7 +824,9 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
         if (global.params.mscoff)
         {
             // emit relocation information
-            objmod->ref_data_symbol(csym, dt_size(dt), 0);
+            vtblRef.offsetInDt = dt_size(dt);
+            vtblRef.referenceOffset = 0;
+            hasVtblRef = true;
             Symbol *vtblSymbolImport = Dsymbol::toImport(Type::typeinfoclass->toVtblSymbol());
             dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
         }
@@ -922,6 +938,12 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
     outdata(csym);
     if (isExport())
         objmod->export_data_symbol(csym);
+    #ifdef TARGET_WINDOS
+    if (hasVtblRef)
+    {
+      objmod->ref_data_symbol(csym, &vtblRef, 1);
+    }
+    #endif
 }
 
 /* ================================================================== */
@@ -966,15 +988,13 @@ void StructDeclaration::toObjFile(bool multiobj)
 
             sinit->Sfl = FLdata;
             #if TARGET_WINDOS
+            Array<DataSymbolRef> dataSymbolRefs;
             if (global.params.mscoff)
             {
-                Array<DataSymbolRef> dataSymbolRefs;
                 StructDeclaration_toDt(this, &sinit->Sdt, &dataSymbolRefs);
                 dt_optimize(sinit->Sdt);
                 if (dataSymbolRefs.dim == 0)
                     out_readonly(sinit); // can only be read-only if no data symbol references need to be relocated
-                for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
-                    objmod->ref_data_symbol(sinit, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
             }
             else
             #endif
@@ -987,6 +1007,9 @@ void StructDeclaration::toObjFile(bool multiobj)
             outdata(sinit);
             if (isExport())
               objmod->export_data_symbol(sinit);
+            #if TARGET_WINDOS
+            objmod->ref_data_symbol(sinit, dataSymbolRefs.data, dataSymbolRefs.dim);
+            #endif
         }
 
         // Put out the members
@@ -1060,6 +1083,10 @@ void VarDeclaration::toObjFile(bool multiobj)
         }
         s->Sfl = FLdata;
 
+        #if TARGET_WINDOS
+        Array<DataSymbolRef> dataSymbolRefs;
+        #endif
+
         if (init)
         {
             unsigned int dataRefOffset = 0xFFFFFFFF;
@@ -1067,10 +1094,7 @@ void VarDeclaration::toObjFile(bool multiobj)
             #if TARGET_WINDOS
             if (global.params.mscoff)
             {
-                Array<DataSymbolRef> dataSymbolRefs;
                 s->Sdt = Initializer_toDt(init, &dataSymbolRefs);
-                for (unsigned int i = 0; i < dataSymbolRefs.dim; i++)
-                    objmod->ref_data_symbol(s, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
             }
             else
             #endif
@@ -1131,6 +1155,9 @@ void VarDeclaration::toObjFile(bool multiobj)
             outdata(s);
             if (isExport())
                 objmod->export_data_symbol(s);
+            #if TARGET_WINDOS
+            objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+            #endif
         }
     }
 }
@@ -1191,7 +1218,9 @@ void TypeInfoDeclaration::toObjFile(bool multiobj)
     s->Sclass = SCcomdat;
     s->Sfl = FLdata;
 
-    TypeInfo_toDt(&s->Sdt, this);
+    Array<DataSymbolRef> dataSymbolRefs;
+
+    TypeInfo_toDt(&s->Sdt, this, &dataSymbolRefs);
 
     dt_optimize(s->Sdt);
 
@@ -1204,14 +1233,10 @@ void TypeInfoDeclaration::toObjFile(bool multiobj)
         dt2common(&s->Sdt);
     }
 
-    for (unsigned int i = 0; i < nextDataSymbolOffset; i++)
-    {
-        objmod->ref_data_symbol(s, dataSymbolOffsets[i], 0);
-    }
-
     outdata(s);
     if (isExport())
         objmod->export_data_symbol(s);
+    objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
 }
 
 /* ================================================================== */
