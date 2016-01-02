@@ -1944,8 +1944,15 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     TYPE *imp_t = type_pointer(s->Stype);
     type_setmangle(&imp_t, mTYman_c); // we don't want any mangling because the identifier is already mangled
     imp_s->Stype = imp_t;
-    imp_s->Sclass = SCglobal;
     imp_s->Sfl = FLdata;
+    if (s->Sclass == SCcomdat)
+    {
+      imp_s->Sclass = SCcomdat;
+    }
+    else
+    {
+      imp_s->Sclass = SCglobal;
+    }
 
     // create a initializer which is a offset 0 of the original symbol
     dtxoff(&imp_s->Sdt, s, 0);
@@ -1953,6 +1960,11 @@ void MsCoffObj::export_data_symbol(Symbol *s)
 
     // finally write the import symbol
     outdata(imp_s);
+    if (imp_s->Sclass == SCcomdat)
+    {
+      assert(s->Sseg > 0); // The original data symbol must already be written so we can associate with it.
+      SegData[imp_s->Sseg]->SDassocseg = s->Sseg;
+    }
 
     // now that we are done, export the original symbol
     if (global.params.dll) // only export symbols when compiling with -shared
@@ -1982,6 +1994,8 @@ void MsCoffObj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_
         align |
         IMAGE_SCN_MEM_READ | linkage);
 
+    // if the data symbol we are generating relocation information for is a comdat
+    // emit the relocation information into a comdat as well and mark it as associated.
     if (linkage != 0)
     {
         // Generate the dll relocation name, which is symname__reloc
