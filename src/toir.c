@@ -864,6 +864,9 @@ RET retStyle(TypeFunction *tf)
             StructDeclaration *sd = ((TypeStruct *)tns)->sym;
             if (sd->ident == Id::__c_long_double)
                 return RETregs;
+            // MSVC always returns structs on stack, no matter the size
+            if (tf->linkage == LINKcpp)
+                return RETstack;
             if (!sd->isPOD() || sz >= 8)
                 return RETstack;
         }
