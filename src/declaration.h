@@ -320,7 +320,7 @@ class TypeInfoDeclaration : public VarDeclaration
 {
 public:
     Type *tinfo;
-    unsigned int dataSymbolOffsets[3];
+    unsigned int dataSymbolOffsets[4];
     unsigned int nextDataSymbolOffset;
 
     TypeInfoDeclaration(Type *tinfo, int internal);

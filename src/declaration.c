@@ -1704,16 +1704,25 @@ bool VarDeclaration::needThis()
 
 bool VarDeclaration::isExport()
 {
-    if ((storage_class & STCgshared || storage_class & STCshared) == 0) // don't export TLS variables
-        return false;
+    // if the symbol does not go into the data segment we can't export it
+    if (!isDataseg())
+      return false;
+    // if the symbol is thread local we can't export it either, as cross dll thread local doesn't work.
+    if (isThreadlocal())
+      return false;
     if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
         return true;
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;
     // check if any of the parents is a class/struct and if they are exported
-    if (AggregateDeclaration *c = parent->isAggregateDeclaration())
+    Dsymbol* realParent = parent;
+    while (TemplateMixin *mixin = realParent->isTemplateMixin())
     {
-        return c->isExport();
+      realParent = mixin->parent;
+    }
+    if (AggregateDeclaration *c = realParent->isAggregateDeclaration())
+    {
+      return c->isExport();
     }
     return false;
 }

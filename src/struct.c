@@ -410,9 +410,18 @@ bool AggregateDeclaration::isExport()
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;
     // check if any of the parents is a class/struct and if they are exported
-    if (AggregateDeclaration *c = parent->isAggregateDeclaration())
+    Dsymbol* realParent = parent;
+    while (TemplateMixin *mixin = realParent->isTemplateMixin())
+    {
+      realParent = mixin->parent;
+    }
+    if (AggregateDeclaration *c = realParent->isAggregateDeclaration())
     {
         return c->isExport();
+    }
+    else if (FuncDeclaration *f = realParent->isFuncDeclaration())
+    {
+        return f->isExport();
     }
     return false;
 }

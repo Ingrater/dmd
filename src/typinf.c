@@ -574,7 +574,17 @@ public:
         if (sd->zeroInit)
             dtsize_t(pdt, 0);                // NULL for 0 initialization
         else
-            dtxoff(pdt, sd->toInitializer(), 0);    // init.ptr
+        {
+          Symbol* initializer = sd->toInitializer();
+          #if TARGET_WINDOS
+          if (global.params.mscoff && d->isImportedSymbol())
+          {
+              initializer = Dsymbol::toImport(initializer);
+              d->dataSymbolOffsets[d->nextDataSymbolOffset++] = dt_size(*pdt);
+          }
+          #endif
+          dtxoff(pdt, initializer, 0);    // init.ptr
+        }
 
         if (FuncDeclaration *fd = sd->xhash)
         {
