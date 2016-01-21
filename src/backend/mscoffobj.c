@@ -1963,29 +1963,68 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     }
 }
 
-void MsCoffObj::ref_data_symbol(Symbol *dataSym, targ_size_t offsetSym, targ_size_t offsetRef)
+void MsCoffObj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
 {
-    /* BUG: this should go into a COMDAT if dataSym is in a COMDAT
-    * otherwise the duplicates aren't removed.
-    */
+    // if the data symbol does not have any cross dll references we don't need to emit any relocation information.
+    if (numRefs == 0)
+      return;
+
+    // we are creating a associated section comdat, that means we need to know what to associate with.
+    // thus the incoming dataSymbol must be processed already.
+    assert(dataSym->Sseg > 0);
 
     int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;  // align to NPTRSIZE
+
+    int linkage = (dataSym->Sclass == SCcomdat) ? IMAGE_SCN_LNK_COMDAT : 0;
 
     const int seg =
         MsCoffObj::getsegment(".dllra$B", IMAGE_SCN_CNT_INITIALIZED_DATA |
         align |
-        IMAGE_SCN_MEM_READ);
+        IMAGE_SCN_MEM_READ | linkage);
 
-    Outbuffer *buf = SegData[seg]->SDbuf;
-    if (I64)
+    if (linkage != 0)
     {
-        MsCoffObj::reftoident(seg, buf->size(), dataSym, offsetSym, CFoff | CFoffset64);
-        buf->write64(offsetRef);
+        // Generate the dll relocation name, which is symname__reloc
+        size_t sflen = strlen(dataSym->Sident);
+        char *reloc_name = (char *)alloca(7 + sflen + 1);
+        assert(reloc_name);
+        memcpy(reloc_name, dataSym->Sident, sflen);
+        memcpy(reloc_name + sflen, "__reloc", 8); // include terminating 0
+
+        symbol *relocData = symbol_name(reloc_name, SCstatic, tsint);
+        symbol_keep(relocData);
+        symbol_debug(relocData);
+
+        for (targ_size_t i = 0; i < numRefs; i++)
+        {
+            dtxoff(&relocData->Sdt, dataSym, refs[i].offsetInDt);
+            dtsize_t(&relocData->Sdt, refs[i].referenceOffset);
+        }
+
+        relocData->Sseg = seg;
+        relocData->Salignment = 1;
+        SegData[seg]->SDassocseg = dataSym->Sseg;
+        outdata(relocData);
     }
     else
     {
-        MsCoffObj::reftoident(seg, buf->size(), dataSym, offsetSym, CFoff);
-        buf->write32(offsetRef);
+        Outbuffer *buf = SegData[seg]->SDbuf;
+        if (I64)
+        {
+            for (targ_size_t i = 0; i < numRefs; i++)
+            {
+                MsCoffObj::reftoident(seg, buf->size(), dataSym, refs[i].offsetInDt, CFoff | CFoffset64);
+                buf->write64(refs[i].referenceOffset);
+            }
+        }
+        else
+        {
+            for (targ_size_t i = 0; i < numRefs; i++)
+            {
+                MsCoffObj::reftoident(seg, buf->size(), dataSym, refs[i].offsetInDt, CFoff);
+                buf->write32(refs[i].referenceOffset);
+            }
+        }
     }
 }
 

@@ -2109,7 +2109,6 @@ TypeInfoDeclaration::TypeInfoDeclaration(Type *tinfo, int internal)
     storage_class = STCstatic | STCgshared;
     protection = Prot(PROTpublic);
     linkage = LINKc;
-    nextDataSymbolOffset = 0;
 }
 
 TypeInfoDeclaration *TypeInfoDeclaration::create(Type *tinfo, int internal)

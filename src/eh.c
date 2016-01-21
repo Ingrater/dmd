@@ -43,13 +43,6 @@ static char __file__[] = __FILE__;      /* for tassert.h                */
 
 extern void error(const char *filename, unsigned linnum, unsigned charnum, const char *format, ...);
 
-struct DataSymbolRef
-{
-    unsigned int offsetInDt; // offset of the reference within the generated dt
-    unsigned int referenceOffset; // offset of the refernce to the referenced symbol
-};
-
-
 /****************************
  * Generate and output scope table.
  */
@@ -75,15 +68,15 @@ symbol *except_gentables()
 #if TARGET_WINDOS
         Array<DataSymbolRef> dataSymbolRefs;
         except_fillInEHTable(s, &dataSymbolRefs);
-        for (size_t i = 0; i < dataSymbolRefs.dim; i++)
-        {
-            objmod->ref_data_symbol(s, dataSymbolRefs[i].offsetInDt, dataSymbolRefs[i].referenceOffset);
-        }
 #else
         except_fillInEHTable(s);
 #endif
 
         outdata(s);                 // output the scope table
+
+#if TARGET_WINDOS
+        objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+#endif
 
         objmod->ehtables(funcsym_p,funcsym_p->Ssize,s);
     }
