@@ -2139,14 +2139,34 @@ char *TypeInfoDeclaration::toChars()
 
 bool TypeInfoDeclaration::isExport()
 {
-    Dsymbol* sym = type->toDsymbol(NULL);
-    return (sym != NULL) ? sym->isExport() : false;
+    // For builtin type infos forward to the actual implementation.
+    if (tinfo->builtinTypeInfo())
+      return type->toDsymbol(NULL)->isExport();
+    // find the end of the type chain
+    Type* baseType = tinfo;
+    while (Type* nextType = baseType->nextOf())
+    {
+      baseType = nextType;
+    }
+    // if we get a symbol its user defined and we can check if the user defined exports or not
+    // if we don't get a symbol is a builtin type and we always export
+    Dsymbol* sym = baseType->toDsymbol(NULL);
+    return (sym != NULL) ? sym->isExport() : true;
 }
 
 bool TypeInfoDeclaration::isImportedSymbol()
 {
-    Dsymbol* sym = type->toDsymbol(NULL);
-    return (sym != NULL) ? sym->isImportedSymbol() : false;
+    // For builtin type infos forward to the actual implementation.
+    if (tinfo->builtinTypeInfo())
+      return type->toDsymbol(NULL)->isImportedSymbol();
+    // if we don't have a parent the type info has been instanciated during 
+    // a genObj phase. That means its definitly local.
+    if (parent == NULL)
+      return false;
+    Module *m = parent->isModule();
+    assert(m); // parent should always be a module
+    // if the module that instanciated the type info is not a root module we need to import the type info.
+    return !m->isRoot() && this->isExport();
 }
 
 /***************************** TypeInfoConstDeclaration **********************/

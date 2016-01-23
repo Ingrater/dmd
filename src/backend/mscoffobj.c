@@ -1975,7 +1975,10 @@ void MsCoffObj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_
 
     int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;  // align to NPTRSIZE
 
-    int linkage = (dataSym->Sclass == SCcomdat) ? IMAGE_SCN_LNK_COMDAT : 0;
+    // TODO putting the relocation information into a associated comdat doesn't work. 
+    // Usually somewhere during phobos init something will crash, I don't have a small repro case however.
+    //int linkage = (dataSym->Sclass == SCcomdat) ? IMAGE_SCN_LNK_COMDAT : 0;
+    int linkage = 0;
 
     const int seg =
         MsCoffObj::getsegment(".dllra$B", IMAGE_SCN_CNT_INITIALIZED_DATA |

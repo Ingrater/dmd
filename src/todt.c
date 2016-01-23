@@ -510,7 +510,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 return;
             }
             #if TARGET_WINDOS
-            if (global.params.mscoff && e->var->isImportedSymbol())
+            if (global.params.useDll && e->var->isImportedSymbol())
             {
                 assert(dataSymbolRefs != NULL);
                 DataSymbolRef ref;
@@ -520,10 +520,13 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 pdt = dtxoff(pdt, e->var->toImport(), 0);
             }
             else
-            #endif
             {
                 pdt = dtxoff(pdt, toSymbol(e->var), e->offset);
             }
+            #else
+            pdt = dtxoff(pdt, toSymbol(e->var), e->offset);
+            #endif
+
         }
 
         void visit(VarExp *e)
@@ -722,7 +725,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
                 if (offset < b->offset)
                     dtnzeros(pdt, b->offset - offset);
                 #if TARGET_WINDOS
-                if (global.params.mscoff && cd2->isImportedSymbol())
+                if (global.params.useDll && cd2->isImportedSymbol())
                 {
                     assert(dataSymbolRefs != NULL);
                     DataSymbolRef ref;

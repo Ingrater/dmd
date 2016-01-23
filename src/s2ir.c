@@ -1040,16 +1040,19 @@ public:
                 bcatch->Bcatchimported = false;
                 ClassDeclaration* basetypeClass = basetype->isClassHandle();
                 assert(basetypeClass != NULL); // D can only catch classes
-                if (global.params.mscoff && basetypeClass->isImportedSymbol())
+                if (global.params.useDll && basetypeClass->isImportedSymbol())
                 {
                     bcatch->Bcatchimported = true;
                     bcatch->Bcatchtype = basetypeClass->toImport();
                 }
                 else
-                #endif
                 {
                     bcatch->Bcatchtype = toSymbol(basetype);
                 }
+                #else
+                bcatch->Bcatchtype = toSymbol(basetype);
+                #endif
+                
             }
             tryblock->appendSucc(bcatch);
             block_goto(blx, BCjcatch, NULL);

@@ -334,7 +334,7 @@ Expression *Expression_optimize(Expression *e, int result, bool keepLvalue)
             {
                 VarExp *ve = (VarExp *)e->e1;
                 if (!ve->var->isOut() && !ve->var->isRef() &&
-                    !ve->var->isImportedSymbol())
+                    (!global.params.useDll || !ve->var->isImportedSymbol()))
                 {
                     ret = new SymOffExp(e->loc, ve->var, 0, ve->hasOverloads);
                     ret->type = e->type;
@@ -351,7 +351,7 @@ Expression *Expression_optimize(Expression *e, int result, bool keepLvalue)
                     sinteger_t index = ae->e2->toInteger();
                     VarExp *ve = (VarExp *)ae->e1;
                     if (ve->type->ty == Tsarray
-                        && !ve->var->isImportedSymbol())
+                        && (!global.params.useDll || !ve->var->isImportedSymbol()))
                     {
                         TypeSArray *ts = (TypeSArray *)ve->type;
                         sinteger_t dim = ts->dim->toInteger();

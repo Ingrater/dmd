@@ -303,6 +303,7 @@ Usage:\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
   -shared        generate shared library (DLL)\n\
+  -useShared     indicate that the generated binary will use D shared libraries\n\
   -transition=id show additional info about language change identified by 'id'\n\
   -transition=?  list all language changes\n\
   -unittest      compile in unit tests\n\
@@ -578,6 +579,8 @@ int tryMain(size_t argc, const char *argv[])
             }
             else if (strcmp(p + 1, "shared") == 0)
                 global.params.dll = true;
+            else if (strcmp(p + 1, "useShared") == 0)
+                global.params.useDll = true;
             else if (strcmp(p + 1, "dylib") == 0)
             {
 #if TARGET_OSX
@@ -1075,6 +1078,16 @@ Language changes listed by -transition=id:\n\
         error(Loc(), "cannot mix -lib and -shared");
 #endif
 
+    // -shared implies -useShared
+    if (global.params.dll)
+      global.params.useDll = true;
+
+#if TARGET_WINDOS
+    // full dll support is currently only implemented when targeting the microsoft linker
+    if (global.params.useDll && !global.params.mscoff)
+        global.params.useDll = false;
+#endif
+
     if (global.params.release)
     {
         global.params.useInvariants = false;
@@ -1144,7 +1157,11 @@ Language changes listed by -transition=id:\n\
 #if TARGET_WINDOS
         VersionCondition::addPredefinedGlobalIdent("Win64");
         if (!setdefaultlib)
-        {   global.params.defaultlibname = "phobos64";
+        {   
+            if (global.params.useDll)
+                global.params.defaultlibname = "phobos64s";
+            else
+                global.params.defaultlibname = "phobos64";
             if (!setdebuglib)
                 global.params.debuglibname = global.params.defaultlibname;
         }
@@ -1162,7 +1179,10 @@ Language changes listed by -transition=id:\n\
         VersionCondition::addPredefinedGlobalIdent("Win32");
         if (!setdefaultlib && global.params.mscoff)
         {
-            global.params.defaultlibname = "phobos32mscoff";
+            if (global.params.useDll)
+                global.params.defaultlibname = "phobos32mscoffs";
+            else
+                global.params.defaultlibname = "phobos32mscoff";
             if (!setdebuglib)
                 global.params.debuglibname = global.params.defaultlibname;
         }

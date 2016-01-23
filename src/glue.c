@@ -934,7 +934,7 @@ void FuncDeclaration::toObjFile(bool multiobj)
 #if TARGET_WINDOS
             if (global.params.mscoff)
             {
-                if (global.params.dll)
+                if (global.params.useDll)
                 {
                     objmod->includelib("msvcrt");
                 }
@@ -956,7 +956,7 @@ void FuncDeclaration::toObjFile(bool multiobj)
             if (global.params.mscoff)
             {
                 objmod->includelib("uuid");
-                if (global.params.dll)
+                if (global.params.useDll)
                     objmod->includelib("msvcrt");
                 else
                     objmod->includelib("LIBCMT");

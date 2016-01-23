@@ -141,12 +141,17 @@ void Type::genTypeInfo(Scope *sc)
                 {
                     // Bugzilla 13043: Avoid linking TypeInfo if it's not
                     // necessary for root module compilation
+
+                    // if we don't emit the type info we expect the module to already have it
+                    t->vtinfo->parent = sc->module;
                 }
                 else
                 {
                     // Find module that will go all the way to an object file
                     Module *m = sc->module->importedFrom;
                     m->members->push(t->vtinfo);
+                    // Set the module as parent on the type info. That way we know which module emits it into the object file.
+                    t->vtinfo->parent = m;
 
                     semanticTypeInfo(sc, t);
                 }
@@ -264,7 +269,7 @@ private:
     static void dtxoffVtbl(TypeInfoDeclaration *d, dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs)
     {
         #if TARGET_WINDOS
-        if (global.params.mscoff && Type::typeinfoarray->isImportedSymbol())
+        if (global.params.useDll && Type::typeinfoarray->isImportedSymbol())
         {
             assert(dataSymbolRefs != NULL);
             DataSymbolRef crossDllRef;
@@ -274,16 +279,19 @@ private:
             dtxoff(pdt, Dsymbol::toImport(cd->toVtblSymbol()), 0);
         }
         else
-        #endif
         {
             dtxoff(pdt, cd->toVtblSymbol(), 0); // vtbl for TypeInfo_Invariant
         }
+        #else
+        dtxoff(pdt, cd->toVtblSymbol(), 0); // vtbl for TypeInfo_Invariant
+        #endif
+
     }
 
     static void dtxoffTypeInfo(TypeInfoDeclaration *d, dt_t **pdt, TypeInfoDeclaration *ti, Array<DataSymbolRef>* dataSymbolRefs)
     {
         #if TARGET_WINDOS
-        if (global.params.mscoff && ti->isImportedSymbol())
+        if (global.params.useDll && ti->isImportedSymbol())
         {
             assert(dataSymbolRefs != NULL);
             DataSymbolRef crossDllRef;
@@ -293,10 +301,12 @@ private:
             dtxoff(pdt, ti->toImport(), 0);
         }
         else
-        #endif
         {
-            dtxoff(pdt, toSymbol(ti), 0);
+          dtxoff(pdt, toSymbol(ti), 0);
         }
+        #else
+        dtxoff(pdt, toSymbol(ti), 0);
+        #endif
     }
 
 public:
@@ -593,10 +603,14 @@ public:
         {
           Symbol* initializer = sd->toInitializer();
           #if TARGET_WINDOS
-          if (global.params.mscoff && d->isImportedSymbol())
+          if (global.params.useDll && sd->isImportedSymbol())
           {
+              assert(dataSymbolRefs != NULL);
               initializer = Dsymbol::toImport(initializer);
-              d->dataSymbolOffsets[d->nextDataSymbolOffset++] = dt_size(*pdt);
+              DataSymbolRef ref;
+              ref.offsetInDt = dt_size(*pdt);
+              ref.referenceOffset = 0;
+              dataSymbolRefs->push(ref);
           }
           #endif
           dtxoff(pdt, initializer, 0);    // init.ptr

@@ -1009,7 +1009,7 @@ elem *toElem(Expression *e, IRState *irs)
 
             #if TARGET_WINDOS
             // only windows needs special handling for imported symbols
-            if (global.params.mscoff && (se->var->isImportedSymbol() || (se->var->isSymbolDeclaration() && se->var->isSymbolDeclaration()->dsym->isImportedSymbol())))
+            if (global.params.useDll && (se->var->isImportedSymbol() || (se->var->isSymbolDeclaration() && se->var->isSymbolDeclaration()->dsym->isImportedSymbol())))
             {
                 assert(se->op == TOKvar);
                 e = el_var(se->var->toImport());
@@ -1433,7 +1433,8 @@ elem *toElem(Expression *e, IRState *irs)
                 else
                 {
                     elem_p classinfo = NULL;
-                    if (cd->isImportedSymbol())
+                    #if TARGET_WINDOS
+                    if (global.params.useDll && cd->isImportedSymbol())
                     {
                         Symbol *csym = cd->toImport();
                         classinfo = el_una(OPind, TYnptr, el_ptr(csym));
@@ -1443,6 +1444,10 @@ elem *toElem(Expression *e, IRState *irs)
                         Symbol *csym = toSymbol(cd);
                         classinfo = el_ptr(csym);
                     }
+                    #else
+                    Symbol *csym = toSymbol(cd);
+                    classinfo = el_ptr(csym);
+                    #endif
                     ex = el_bin(OPcall, TYnptr, el_var(rtlsym[RTLSYM_NEWCLASS]), classinfo);
                     ectype = NULL;
 
@@ -3941,15 +3946,16 @@ elem *toElem(Expression *e, IRState *irs)
                  */
                 elem *ep = NULL;
                 #if TARGET_WINDOS
-                if (global.params.mscoff)
+                if (global.params.useDll)
                 {
                     ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(cdto->toImport())) : el_ptr(toSymbol(cdto)), e);
                 }
-                #else
                 else
                 {
                     ep = el_param(el_ptr(toSymbol(cdto)), e);
                 }
+                #else
+                ep = el_param(el_ptr(toSymbol(cdto)), e);
                 #endif
                 e = el_bin(OPcall, TYnptr, el_var(rtlsym[rtl]), ep);
                 goto Lret;

@@ -348,7 +348,7 @@ void ClassDeclaration::toObjFile(bool multiobj)
        }
      */
     dt_t *dt = NULL;
-    #ifdef TARGET_WINDOS
+    #if TARGET_WINDOS
     Array<DataSymbolRef> dataSymbolRefs;
     #endif
     unsigned classinfo_size = global.params.isLP64 ? CLASSINFO_SIZE_64 : CLASSINFO_SIZE;    // must be ClassInfo.size
@@ -417,7 +417,7 @@ void ClassDeclaration::toObjFile(bool multiobj)
     if (baseClass)
     {
         #if TARGET_WINDOS
-        if (global.params.mscoff && baseClass->isImportedSymbol())
+        if (global.params.useDll && baseClass->isImportedSymbol())
         {
             DataSymbolRef newRef;
             newRef.offsetInDt = dt_size(dt);
@@ -427,10 +427,13 @@ void ClassDeclaration::toObjFile(bool multiobj)
             dtxoff(&dt, baseClassImport, 0, TYnptr);
         }
         else
-        #endif
         {
-            dtxoff(&dt, toSymbol(baseClass), 0, TYnptr);
+          dtxoff(&dt, toSymbol(baseClass), 0, TYnptr);
         }
+        #else
+        dtxoff(&dt, toSymbol(baseClass), 0, TYnptr);
+        #endif
+
     }
     else
         dtsize_t(&dt, 0);
@@ -629,7 +632,7 @@ void ClassDeclaration::toObjFile(bool multiobj)
     outdata(csym);
     if (isExport())
         objmod->export_data_symbol(csym);
-    #ifdef TARGET_WINDOS
+    #if TARGET_WINDOS
     if (dataSymbolRefs.dim > 0)
     {
         objmod->ref_data_symbol(csym, dataSymbolRefs.data, dataSymbolRefs.dim);
@@ -813,7 +816,7 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
        }
      */
     dt_t *dt = NULL;
-    #ifdef TARGET_WINDOS
+    #if TARGET_WINDOS
     DataSymbolRef vtblRef;
     bool hasVtblRef = false;
     #endif
@@ -938,7 +941,7 @@ void InterfaceDeclaration::toObjFile(bool multiobj)
     outdata(csym);
     if (isExport())
         objmod->export_data_symbol(csym);
-    #ifdef TARGET_WINDOS
+    #if TARGET_WINDOS
     if (hasVtblRef)
     {
       objmod->ref_data_symbol(csym, &vtblRef, 1);
