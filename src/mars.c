@@ -341,23 +341,34 @@ void genCmain(Scope *sc)
     /* The D code to be generated is provided as D source code in the form of a string.
      * Note that Solaris, for unknown reasons, requires both a main() and an _main()
      */
-    static const utf8_t cmaincode[] = "extern(C) {\n\
+    static const utf8_t cmaincodeGeneric[] = "extern(C) {\n\
         int _d_run_main(int argc, char **argv, void* mainFunc);\n\
-        int _Dmain(char[][] args);\n"
-        #ifdef TARGET_WINDOS
-        "void _d_dll_fixup(void*);\n"
-        #endif
-        "int main(int argc, char **argv) { " 
-        #ifdef TARGET_WINDOS
-        "_d_dll_fixup(null);"
-        #endif
-        "return _d_run_main(argc, argv, &_Dmain); }\n\
+        int _Dmain(char[][] args);\n\
+        int main(int argc, char **argv) {\
+        return _d_run_main(argc, argv, &_Dmain); }\n\
         version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
         }\n\
         ";
+#ifdef TARGET_WINDOS
+    static const utf8_t cmaincodeWin[] = "extern(C) {\n\
+        int _d_run_main(int argc, char **argv, void* mainFunc);\n\
+        int _Dmain(char[][] args);\n\
+        void _d_dll_fixup(void*);\n\
+        int main(int argc, char **argv) {\
+        _d_dll_fixup(null);\n\
+        return _d_run_main(argc, argv, &_Dmain); }\n\
+        }\n\
+        ";
+#endif
 
     Identifier *id = Id::entrypoint;
     Module *m = new Module("__entrypoint.d", id, 0, 0);
+
+    #ifdef TARGET_WINDOS
+    const utf8_t* cmaincode = (global.params.betterC) ? cmaincodeGeneric : cmaincodeWin;
+    #else
+    const utf8_t* cmaincode = cmaincodeGeneric;
+    #endif
 
     Parser p(m, cmaincode, strlen((const char *)cmaincode), 0);
     p.scanloc = Loc();
