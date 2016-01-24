@@ -475,11 +475,11 @@ void genObjFile(Module *m, bool multiobj)
         return;
     }
 
-    if (massert && this->isRoot())
-      objmod->export_symbol(massert, 0);
+    if (m->massert && m->isRoot())
+      objmod->export_symbol(m->massert, 0);
 
-    if (marray && this->isRoot())
-      objmod->export_symbol(marray, 0);
+    if (m->marray && m->isRoot())
+      objmod->export_symbol(m->marray, 0);
 
     /* Always generate module info, because of templates and -cov.
      * But module info needs the runtime library, so disable it for betterC.

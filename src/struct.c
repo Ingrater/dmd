@@ -406,8 +406,7 @@ bool AggregateDeclaration::isDeprecated()
 
 bool AggregateDeclaration::isExport()
 {
-    //return protection.kind == PROTexport;
-    if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
+    if (protection.kind == PROTexport) // if directly exported
         return true;
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;

@@ -1041,10 +1041,6 @@ Language changes listed by -transition=id:\n\
                     goto Lnoarg;
                 }
             }
-            else if (strcmp(p + 1, "exportall") == 0)
-            {
-                global.params.exportall = true;
-            }
             else
             {
              Lerror:

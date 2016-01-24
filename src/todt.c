@@ -46,7 +46,7 @@ struct DataSymbolRef
     unsigned int referenceOffset; // offset of the refernce to the referenced symbol
 };
 
-dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs = NULL);
+dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 dt_t **toDtElem(TypeSArray *tsa, dt_t **pdt, Expression *e);
 void ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteType, Array<DataSymbolRef> *dataSymbolRefs);
@@ -56,12 +56,13 @@ dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt);
 dt_t **membersToDt(ClassReferenceExp *ce, dt_t **pdt, ClassDeclaration *cd, Dts *dts);
 dt_t **ClassReferenceExp_toDt(ClassReferenceExp *e, dt_t **pdt, int off);
 Symbol *toSymbol(Dsymbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs = NULL);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 unsigned baseVtblOffset(ClassDeclaration *cd, BaseClass *bc);
 void toObjFile(Dsymbol *ds, bool multiobj);
 Symbol *toVtblSymbol(ClassDeclaration *cd);
 Symbol* toSymbol(StructLiteralExp *sle);
 Symbol* toSymbol(ClassReferenceExp *cre);
+Symbol *toImport(Dsymbol *ds);
 void genTypeInfo(Type *t, Scope *sc);
 
 /* ================================================================ */
@@ -150,7 +151,7 @@ dt_t *Initializer_toDt(Initializer *init, Array<DataSymbolRef> *dataSymbolRefs)
                 else
                 {
                     if (!dtdefault)
-                        Expression_toDt(edefault, &dtdefault);
+                        Expression_toDt(edefault, &dtdefault, NULL);
 
                     pdtend = dtrepeat(pdtend, dtdefault, n);
                 }
@@ -171,7 +172,7 @@ dt_t *Initializer_toDt(Initializer *init, Array<DataSymbolRef> *dataSymbolRefs)
                         else
                         {
                             if (!dtdefault)
-                                Expression_toDt(edefault, &dtdefault);
+                                Expression_toDt(edefault, &dtdefault, NULL);
 
                             pdtend = dtrepeat(pdtend, dtdefault, n * (tadim - ai->dim));
                         }
@@ -259,7 +260,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 }
                 else //casting from class to class
                 {
-                    pdt = Expression_toDt(e->e1, pdt);
+                    pdt = Expression_toDt(e->e1, pdt, NULL);
                     return;
                 }
             }
@@ -425,7 +426,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
             dt_t **pdtend = &d;
             for (size_t i = 0; i < e->elements->dim; i++)
             {
-                pdtend = Expression_toDt((*e->elements)[i], pdtend);
+                pdtend = Expression_toDt((*e->elements)[i], pdtend, NULL);
             }
             Type *t = e->type->toBasetype();
 
@@ -529,7 +530,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 ref.offsetInDt = dt_size(*pdt);
                 ref.referenceOffset = e->offset;
                 dataSymbolRefs->push(ref);
-                pdt = dtxoff(pdt, e->var->toImport(), 0);
+                pdt = dtxoff(pdt, toImport(e->var), 0);
             }
             else
             {
@@ -606,7 +607,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 }
                 else
                     elem = e->e1;
-                pdt = Expression_toDt(elem, pdt);
+                pdt = Expression_toDt(elem, pdt, NULL);
             }
         }
 
@@ -707,7 +708,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
         else if (v->offset >= offset)
         {
             //printf("\t\tdefault initializer\n");
-            Type_toDt(v->type, &dt);
+            Type_toDt(v->type, &dt, NULL);
         }
         if (dt)
         {
@@ -756,7 +757,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
                     ref.offsetInDt = dt_size(*pdt);
                     ref.referenceOffset = csymoffset;
                     dataSymbolRefs->push(ref);
-                    dtxoff(pdt, cd2->toImport(), 0);
+                    dtxoff(pdt, toImport(cd2), 0);
                 }
                 else
                 #endif
@@ -804,7 +805,7 @@ dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs)
         {
             //printf("Type::toDt()\n");
             Expression *e = t->defaultInit();
-            pdt = Expression_toDt(e, pdt);
+            pdt = Expression_toDt(e, pdt, NULL);
         }
 
         void visit(TypeVector *t)
@@ -852,7 +853,7 @@ dt_t **toDtElem(TypeSArray *tsa, dt_t **pdt, Expression *e)
         }
         if (!e)                             // if not already supplied
             e = tsa->defaultInit(Loc());    // use default initializer
-        Expression_toDt(e, pdt);
+        Expression_toDt(e, pdt, NULL);
         dt_optimize(*pdt);
         if (e->op == TOKstring)
             len /= ((StringExp *)e)->len;
@@ -895,7 +896,7 @@ dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt)
         if (!e)
             continue;
         dt_t *dt = NULL;
-        Expression_toDt(e, &dt);           // convert e to an initializer dt
+        Expression_toDt(e, &dt, NULL);           // convert e to an initializer dt
         dts[i] = dt;
     }
     dtxoff(pdtend, toVtblSymbol(ce->originalClass()), 0);
@@ -952,7 +953,7 @@ dt_t **membersToDt(ClassReferenceExp *ce, dt_t **pdt, ClassDeclaration *cd, Dts 
             else if (v->offset >= offset)
             {
                 //printf("\t\tdefault initializer\n");
-                Type_toDt(v->type, &dt);
+                Type_toDt(v->type, &dt, NULL);
             }
             if (dt)
             {
@@ -1004,7 +1005,7 @@ dt_t **membersToDt(ClassReferenceExp *ce, dt_t **pdt, ClassDeclaration *cd, Dts 
                         if (v->init)
                             d = Initializer_toDt(v->init, NULL);
                         else
-                            Type_toDt(vt, &d);
+                            Type_toDt(vt, &d, NULL);
                     }
                     pdt = dtcat(pdt, d);
                     d = NULL;

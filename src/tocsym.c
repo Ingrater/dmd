@@ -51,7 +51,7 @@ void slist_reset();
 Classsym *fake_classsym(Identifier *id);
 type *Type_toCtype(Type *t);
 dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs = NULL);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
 Symbol *toInitializer(AggregateDeclaration *ad);
 
 /*************************************
@@ -439,33 +439,10 @@ Symbol *toSymbol(Dsymbol *s)
     return v.result;
 }
 
-/*********************************
- * Generate import symbol from symbol.
- */
-
-Symbol *Dsymbol::toImport()
-{
-    #if TARGET_WINDOS
-    // Only the windows plattform needs import symbols
-    if (!isym)
-    {
-        if (!csym)
-            csym = toSymbol(this);
-        isym = toImport(csym);
-    }
-    return isym;
-    #else
-    // Return the c-symbol on all other plattforms
-    if(!csym)
-        csym = toSymbol(this);
-    return csym;
-    #endif
-}
-
 /*************************************
  */
 
-static Symbol *toImport(Symbol *sym)
+Symbol *toImport(Symbol *sym)
 {
     //printf("Dsymbol::toImport('%s')\n", sym->Sident);
     char *n = sym->Sident;
@@ -504,13 +481,21 @@ static Symbol *toImport(Symbol *sym)
 
 Symbol *toImport(Dsymbol *ds)
 {
-    if (!ds->isym)
-    {
-        if (!ds->csym)
-            ds->csym = toSymbol(ds);
-        ds->isym = toImport(ds->csym);
-    }
-    return ds->isym;
+  #if TARGET_WINDOS
+  // Only the windows plattform needs import symbols
+  if (!ds->isym)
+  {
+      if (!ds->csym)
+          ds->csym = toSymbol(ds);
+      ds->isym = toImport(ds->csym);
+  }
+  return ds->isym;
+  #else
+  // Return the c-symbol on all other plattforms
+  if (!ds->csym)
+      ds->csym = toSymbol(ds);
+  return ds->csym;
+  #endif
 }
 
 /*************************************
@@ -724,7 +709,7 @@ Symbol* toSymbol(StructLiteralExp *sle)
     s->Stype = t;
     sle->sym = s;
     dt_t *d = NULL;
-    Expression_toDt(sle, &d);
+    Expression_toDt(sle, &d, NULL);
     s->Sdt = d;
     slist_add(s);
     outdata(s);

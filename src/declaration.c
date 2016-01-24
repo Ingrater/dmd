@@ -28,6 +28,8 @@
 #include "target.h"
 #include "hdrgen.h"
 
+bool builtinTypeInfo(Type *t);
+
 /************************************
  * Check to see the aggregate type is nested and its context pointer is
  * accessible from the current scope.
@@ -1767,7 +1769,7 @@ bool VarDeclaration::isExport()
     // if the symbol is thread local we can't export it either, as cross dll thread local doesn't work.
     if (isThreadlocal())
       return false;
-    if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
+    if (protection.kind == PROTexport) // if directly exported
         return true;
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;
@@ -2222,7 +2224,7 @@ char *TypeInfoDeclaration::toChars()
 bool TypeInfoDeclaration::isExport()
 {
     // For builtin type infos forward to the actual implementation.
-    if (tinfo->builtinTypeInfo())
+    if (builtinTypeInfo(tinfo))
       return type->toDsymbol(NULL)->isExport();
     // find the end of the type chain
     Type* baseType = tinfo;
@@ -2239,7 +2241,7 @@ bool TypeInfoDeclaration::isExport()
 bool TypeInfoDeclaration::isImportedSymbol()
 {
     // For builtin type infos forward to the actual implementation.
-    if (tinfo->builtinTypeInfo())
+    if (builtinTypeInfo(tinfo))
       return type->toDsymbol(NULL)->isImportedSymbol();
     // if we don't have a parent the type info has been instanciated during 
     // a genObj phase. That means its definitly local.

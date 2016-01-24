@@ -50,6 +50,7 @@ elem *toElemDtor(Expression *e, IRState *irs);
 Symbol *toSymbol(Type *t);
 unsigned totym(Type *tx);
 Symbol *toSymbol(Dsymbol *s);
+Symbol *toImport(Dsymbol *ds);
 
 #define elem_setLoc(e,loc)      srcpos_setLoc(&(e)->Esrcpos, loc)
 #define block_setLoc(b,loc)     srcpos_setLoc(&(b)->Bsrcpos, loc)
@@ -738,7 +739,7 @@ public:
         elem *efilename = NULL;
         #if TARGET_WINDOS
         if (global.params.mscoff && !blx->module->isRoot())
-          efilename = el_una(OPind, TYnptr, el_ptr(blx->module->toImport()));
+          efilename = el_una(OPind, TYnptr, el_ptr(toImport(blx->module)));
         #endif
         if (efilename == NULL)
           efilename = el_ptr(toSymbol(blx->module));
@@ -1055,7 +1056,7 @@ public:
                 if (global.params.useDll && basetypeClass->isImportedSymbol())
                 {
                     bcatch->Bcatchimported = true;
-                    bcatch->Bcatchtype = basetypeClass->toImport();
+                    bcatch->Bcatchtype = toImport(basetypeClass);
                 }
                 else
                 {

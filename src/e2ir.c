@@ -52,7 +52,7 @@ elem *toElemDtor(Expression *e, IRState *irs);
 unsigned totym(Type *tx);
 Symbol *toSymbol(Dsymbol *s);
 elem *toElem(Expression *e, IRState *irs);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs = NULL);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
 Symbol *toStringSymbol(const char *str, size_t len, size_t sz);
 void toObjFile(Dsymbol *ds, bool multiobj);
 Symbol *toModuleAssert(Module *m);
@@ -1480,7 +1480,7 @@ elem *toElem(Expression *e, IRState *irs)
                     #if TARGET_WINDOS
                     if (global.params.useDll && cd->isImportedSymbol())
                     {
-                        Symbol *csym = cd->toImport();
+                        Symbol *csym = toImport(cd);
                         classinfo = el_una(OPind, TYnptr, el_ptr(csym));
                     }
                     else
@@ -4066,7 +4066,7 @@ elem *toElem(Expression *e, IRState *irs)
                     #if TARGET_WINDOS
                     if (global.params.useDll)
                     {
-                        ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(cdto->toImport())) : el_ptr(toSymbol(cdto)), e);
+                        ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(toImport(cdto))) : el_ptr(toSymbol(cdto)), e);
                     }
                     else
                     {

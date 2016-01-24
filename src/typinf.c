@@ -38,13 +38,15 @@ struct DataSymbolRef
 };
 
 Symbol *toSymbol(Dsymbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs = NULL);
+Symbol *toImport(Dsymbol *ds);
+Symbol *toImport(Symbol *sym);
+dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
 void toObjFile(Dsymbol *ds, bool multiobj);
 Symbol *toVtblSymbol(ClassDeclaration *cd);
 Symbol *toInitializer(AggregateDeclaration *ad);
 Symbol *toInitializer(EnumDeclaration *ed);
 TypeInfoDeclaration *getTypeInfoDeclaration(Type *t);
-static bool builtinTypeInfo(Type *t);
+bool builtinTypeInfo(Type *t);
 
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
@@ -181,11 +183,11 @@ private:
             crossDllRef.offsetInDt = dt_size(*pdt);
             crossDllRef.referenceOffset = 0;
             dataSymbolRefs->push(crossDllRef);
-            dtxoff(pdt, Dsymbol::toImport(cd->toVtblSymbol()), 0);
+            dtxoff(pdt, toVtblSymbol(cd), 0);
         }
         else
         {
-            dtxoff(pdt, cd->toVtblSymbol(), 0); // vtbl for TypeInfo_Invariant
+            dtxoff(pdt, toVtblSymbol(cd), 0); // vtbl for TypeInfo_Invariant
         }
         #else
         dtxoff(pdt, cd->toVtblSymbol(), 0); // vtbl for TypeInfo_Invariant
@@ -203,11 +205,11 @@ private:
             crossDllRef.offsetInDt = dt_size(*pdt);
             crossDllRef.referenceOffset = 0;
             dataSymbolRefs->push(crossDllRef);
-            dtxoff(pdt, ti->toImport(), 0);
+            dtxoff(pdt, toImport(ti), 0);
         }
         else
         {
-          dtxoff(pdt, toSymbol(ti), 0);
+            dtxoff(pdt, toSymbol(ti), 0);
         }
         #else
         dtxoff(pdt, toSymbol(ti), 0);
@@ -531,7 +533,7 @@ public:
           if (global.params.useDll && sd->isImportedSymbol())
           {
               assert(dataSymbolRefs != NULL);
-              initializer = Dsymbol::toImport(initializer);
+              initializer = toImport(initializer);
               DataSymbolRef ref;
               ref.offsetInDt = dt_size(*pdt);
               ref.referenceOffset = 0;
@@ -625,7 +627,7 @@ public:
 
         // xgetRTInfo
         if (sd->getRTInfo)
-            Expression_toDt(sd->getRTInfo, pdt);
+            Expression_toDt(sd->getRTInfo, pdt, NULL);
         else if (m_flags & StructFlags::hasPointers)
             dtsize_t(pdt, 1);
         else
@@ -702,7 +704,7 @@ void TypeInfo_toDt(dt_t **pdt, TypeInfoDeclaration *d, Array<DataSymbolRef>* dat
  * because then the compiler doesn't need to build one.
  */
 
-static bool builtinTypeInfo(Type *t)
+bool builtinTypeInfo(Type *t)
 {
     if (t->isTypeBasic() || t->ty == Tclass)
         return !t->mod;

@@ -3600,8 +3600,7 @@ bool FuncDeclaration::isDllMain()
 
 bool FuncDeclaration::isExport()
 {
-    //return protection.kind == PROTexport;
-    if (protection.kind == PROTexport || (protection.kind == PROTpublic && global.params.exportall)) // if directly exported
+    if (protection.kind == PROTexport) // if directly exported
         return true;
     if (protection.kind <= PROTprivate) // not accessible, no need to export
         return false;
@@ -3620,9 +3619,7 @@ bool FuncDeclaration::isExport()
 
 bool FuncDeclaration::isImportedSymbol()
 {
-    //printf("isImportedSymbol()\n");
-    //printf("protection = %d\n", protection);
-    //return (protection.kind == PROTexport) && !fbody;
+    // Functions are never imported as the implib takes care of calling the imported symbol for us.
     return false;
 }
 
