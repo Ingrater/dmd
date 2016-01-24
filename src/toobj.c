@@ -181,7 +181,7 @@ void genModuleInfo(Module *m)
             #if TARGET_WINDOS
             // if we are compiling with shared libraries and the module is not part of the current compilation
             // we must assume that it is imported.
-            if (!global.params.useDll || m->isRoot())
+            if (!global.params.useDll || mod->isRoot())
             {
                 /* Weak references don't pull objects in from the library,
                  * they resolve to 0 if not pulled in by something else.
@@ -1015,6 +1015,11 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                 out_readonly(sd->sinit);    // put in read-only segment
                 #endif
                 outdata(sd->sinit);
+                if (sd->isExport())
+                    objmod->export_data_symbol(sd->sinit);
+                #if TARGET_WINDOS
+                objmod->ref_data_symbol(sd->sinit, dataSymbolRefs.data, dataSymbolRefs.dim);
+                #endif
 
                 // Put out the members
                 for (size_t i = 0; i < sd->members->dim; i++)

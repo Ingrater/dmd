@@ -176,21 +176,21 @@ private:
     static void dtxoffVtbl(TypeInfoDeclaration *d, dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs)
     {
         #if TARGET_WINDOS
-        if (global.params.useDll && Type::typeinfoarray->isImportedSymbol())
+        if (global.params.useDll && cd->isImportedSymbol())
         {
             assert(dataSymbolRefs != NULL);
             DataSymbolRef crossDllRef;
             crossDllRef.offsetInDt = dt_size(*pdt);
             crossDllRef.referenceOffset = 0;
             dataSymbolRefs->push(crossDllRef);
-            dtxoff(pdt, toVtblSymbol(cd), 0);
+            dtxoff(pdt, toImport(toVtblSymbol(cd)), 0);
         }
         else
         {
-            dtxoff(pdt, toVtblSymbol(cd), 0); // vtbl for TypeInfo_Invariant
+            dtxoff(pdt, toVtblSymbol(cd), 0);
         }
         #else
-        dtxoff(pdt, cd->toVtblSymbol(), 0); // vtbl for TypeInfo_Invariant
+        dtxoff(pdt, cd->toVtblSymbol(), 0);
         #endif
 
     }

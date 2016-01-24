@@ -547,10 +547,10 @@ Module *Module::parse()
             "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
 
         static const utf8_t code_xopEquals[] =
-            "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
+            "export bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
 
         static const utf8_t code_xopCmp[] =
-            "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
+            "export bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
 
         Identifier *arreq = Id::_ArrayEq;
         Identifier *xopeq = Identifier::idPool("_xopEquals");

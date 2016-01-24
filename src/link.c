@@ -788,7 +788,36 @@ int executecmd(const char *cmd, const char *args)
     if (status == -1)
     {
         // spawnlp returns intptr_t in some systems, not int
+        #ifdef _MSC_VER
+        OutBuffer cmdbuf;
+        cmdbuf.writestring("\"");
+        cmdbuf.writestring(cmd);
+        cmdbuf.writestring("\" ");
+        cmdbuf.writestring(args);
+
+        STARTUPINFOA startInf;
+        memset(&startInf, 0, sizeof startInf);
+        startInf.cb = sizeof(startInf);
+        PROCESS_INFORMATION procInf;
+        memset(&procInf, 0, sizeof procInf);
+
+        BOOL b = CreateProcessA(NULL, cmdbuf.peekString(), NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL, &startInf, &procInf);
+        if (b) {
+          // Wait till cmd do its job
+          WaitForSingleObject(procInf.hProcess, INFINITE);
+          // Check whether our command succeeded?
+          DWORD returnCode;
+          GetExitCodeProcess(procInf.hProcess, &returnCode);
+          status = returnCode;
+          // Avoid memory leak by closing process handle
+          CloseHandle(procInf.hProcess);
+        }
+        else {
+          status = -1;
+        }
+        #else
         status = spawnlp(0,cmd,cmd,args,NULL);
+        #endif
     }
 
 //    if (global.params.verbose)

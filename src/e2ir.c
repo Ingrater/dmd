@@ -709,7 +709,19 @@ elem *getTypeInfo(Type *t, IRState *irs)
 {
     assert(t->ty != Terror);
     genTypeInfo(t, NULL);
+    #if TARGET_WINDOS
+    elem *e = NULL;
+    if (global.params.useDll && t->vtinfo->isImportedSymbol())
+    {
+      e = el_una(OPind, TYnptr, el_ptr(toImport(t->vtinfo)));
+    }
+    else
+    {
+      e = el_ptr(toSymbol(t->vtinfo));
+    }
+    #else
     elem *e = el_ptr(toSymbol(t->vtinfo));
+    #endif
     return e;
 }
 
@@ -4064,9 +4076,9 @@ elem *toElem(Expression *e, IRState *irs)
                      */
                     elem *ep = NULL;
                     #if TARGET_WINDOS
-                    if (global.params.useDll)
+                    if (global.params.useDll && cdto->isImportedSymbol())
                     {
-                        ep = el_param(cdto->isImportedSymbol() ? el_una(OPind, TYnptr, el_ptr(toImport(cdto))) : el_ptr(toSymbol(cdto)), e);
+                        ep = el_param(el_una(OPind, TYnptr, el_ptr(toImport(cdto))), e);
                     }
                     else
                     {
@@ -4074,11 +4086,12 @@ elem *toElem(Expression *e, IRState *irs)
                     }
                     #else
                     ep = el_param(el_ptr(toSymbol(cdto)), e);
-                #endif
-                int rtl = cdfrom->isInterfaceDeclaration()
-                            ? RTLSYM_INTERFACE_CAST
-                            : RTLSYM_DYNAMIC_CAST;
-                e = el_bin(OPcall, TYnptr, el_var(rtlsym[rtl]), ep);
+                    #endif
+
+                    int rtl = cdfrom->isInterfaceDeclaration()
+                                ? RTLSYM_INTERFACE_CAST
+                                : RTLSYM_DYNAMIC_CAST;
+                    e = el_bin(OPcall, TYnptr, el_var(rtlsym[rtl]), ep);
                 }
                 goto Lret;
             }
