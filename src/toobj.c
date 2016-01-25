@@ -581,7 +581,22 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                 // Fill in vtbl[]
                 b->fillVtbl(cd, &b->vtbl, 1);
 
+                #if TARGET_WINDOS
+                if (global.params.useDll && id->isImportedSymbol())
+                {
+                    DataSymbolRef ref;
+                    ref.offsetInDt = dt_size(dt);
+                    ref.referenceOffset = 0;
+                    dataSymbolRefsClassInfo.push(ref);
+                    dtxoff(&dt, toImport(toSymbol(id)), 0, TYnptr);         // ClassInfo
+                }
+                else
+                {
+                    dtxoff(&dt, toSymbol(id), 0, TYnptr);         // ClassInfo
+                }
+                #else
                 dtxoff(&dt, toSymbol(id), 0, TYnptr);         // ClassInfo
+                #endif
 
                 // vtbl[]
                 dtsize_t(&dt, id->vtbl.dim);
@@ -931,7 +946,22 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                 ClassDeclaration *base = b->sym;
 
                 // ClassInfo
+                #if TARGET_WINDOS
+                if (global.params.useDll && base->isImportedSymbol())
+                {
+                    DataSymbolRef ref;
+                    ref.offsetInDt = dt_size(dt);
+                    ref.referenceOffset = 0;
+                    dataSymbolRefs.push(ref);
+                    dtxoff(&dt, toImport(toSymbol(base)), 0, TYnptr);
+                }
+                else
+                {
+                    dtxoff(&dt, toSymbol(base), 0, TYnptr);
+                }
+                #else
                 dtxoff(&dt, toSymbol(base), 0, TYnptr);
+                #endif
 
                 // vtbl[]
                 dtsize_t(&dt, 0);
@@ -960,7 +990,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
 
             outdata(id->csym);
             if (id->isExport())
-                objmod->export_symbol(id->csym, 0);
+                objmod->export_data_symbol(id->csym);
             #if TARGET_WINDOS
             objmod->ref_data_symbol(id->csym, dataSymbolRefs.data, dataSymbolRefs.dim);
             #endif

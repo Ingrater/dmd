@@ -2223,9 +2223,16 @@ char *TypeInfoDeclaration::toChars()
 
 bool TypeInfoDeclaration::isExport()
 {
+    // special handling for classes because they are considered builtin for whatever reason
+    if (tinfo->ty == Tclass)
+    {
+        Dsymbol* dsym = tinfo->toDsymbol(NULL);
+        if (dsym)
+            return dsym->isExport();
+    }
     // For builtin type infos forward to the actual implementation.
     if (builtinTypeInfo(tinfo))
-      return type->toDsymbol(NULL)->isExport();
+        return type->toDsymbol(NULL)->isExport();
     // find the end of the type chain
     Type* baseType = tinfo;
     while (Type* nextType = baseType->nextOf())
@@ -2240,9 +2247,16 @@ bool TypeInfoDeclaration::isExport()
 
 bool TypeInfoDeclaration::isImportedSymbol()
 {
+    // special handling for classes because they are considered builtin for whatever reason
+    if (tinfo->ty == Tclass)
+    {
+      Dsymbol* dsym = tinfo->toDsymbol(NULL);
+      if (dsym)
+          return dsym->isImportedSymbol();
+    }
     // For builtin type infos forward to the actual implementation.
     if (builtinTypeInfo(tinfo))
-      return type->toDsymbol(NULL)->isImportedSymbol();
+        return type->toDsymbol(NULL)->isImportedSymbol();
     // if we don't have a parent the type info has been instanciated during 
     // a genObj phase. That means its definitly local.
     if (parent == NULL)
