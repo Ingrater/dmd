@@ -62,10 +62,55 @@ void toObjFile(Dsymbol *ds, bool multiobj);
 Symbol *toVtblSymbol(ClassDeclaration *cd);
 Symbol* toSymbol(StructLiteralExp *sle);
 Symbol* toSymbol(ClassReferenceExp *cre);
+Symbol *toVtblSymbol(ClassDeclaration *cd);
 Symbol *toImport(Dsymbol *ds);
+Symbol *toImport(Symbol *s);
 void genTypeInfo(Type *t, Scope *sc);
 
 /* ================================================================ */
+
+void dtxoffVtbl(dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs)
+{
+#if TARGET_WINDOS
+  if (global.params.useDll && cd->isImportedSymbol())
+  {
+    assert(dataSymbolRefs != NULL);
+    DataSymbolRef crossDllRef;
+    crossDllRef.offsetInDt = dt_size(*pdt);
+    crossDllRef.referenceOffset = 0;
+    dataSymbolRefs->push(crossDllRef);
+    dtxoff(pdt, toImport(toVtblSymbol(cd)), 0);
+  }
+  else
+  {
+    dtxoff(pdt, toVtblSymbol(cd), 0);
+  }
+#else
+  dtxoff(pdt, cd->toVtblSymbol(), 0);
+#endif
+
+}
+
+dt_t ** dtxoffDsymbol(dt_t **pdt, Dsymbol *d, unsigned offset, Array<DataSymbolRef>* dataSymbolRefs)
+{
+#if TARGET_WINDOS
+  if (global.params.useDll && d->isImportedSymbol())
+  {
+    assert(dataSymbolRefs != NULL);
+    DataSymbolRef crossDllRef;
+    crossDllRef.offsetInDt = dt_size(*pdt);
+    crossDllRef.referenceOffset = offset;
+    dataSymbolRefs->push(crossDllRef);
+    return dtxoff(pdt, toImport(d), 0);
+  }
+  else
+  {
+    return dtxoff(pdt, toSymbol(d), offset);
+  }
+#else
+  return dtxoff(pdt, toSymbol(d), offset);
+#endif
+}
 
 dt_t *Initializer_toDt(Initializer *init, Array<DataSymbolRef> *dataSymbolRefs)
 {
@@ -522,24 +567,7 @@ dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<DataSymbolRef> *dataSymb
                 e->error("non-constant expression %s", e->toChars());
                 return;
             }
-            #if TARGET_WINDOS
-            if (global.params.useDll && e->var->isImportedSymbol())
-            {
-                assert(dataSymbolRefs != NULL);
-                DataSymbolRef ref;
-                ref.offsetInDt = dt_size(*pdt);
-                ref.referenceOffset = e->offset;
-                dataSymbolRefs->push(ref);
-                pdt = dtxoff(pdt, toImport(e->var), 0);
-            }
-            else
-            {
-                pdt = dtxoff(pdt, toSymbol(e->var), e->offset);
-            }
-            #else
-            pdt = dtxoff(pdt, toSymbol(e->var), e->offset);
-            #endif
-
+            pdt = dtxoffDsymbol(pdt, e->var, e->offset, dataSymbolRefs);
         }
 
         void visit(VarExp *e)
@@ -720,7 +748,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
                     dtnzeros(pdt, v->offset - offset);
                 #if TARGET_WINDOS
                 unsigned int newDataSymbolRefsDim = (dataSymbolRefs) ? dataSymbolRefs->dim : 0;
-                if (global.params.mscoff && newDataSymbolRefsDim > oldDataSymbolRefsDim)
+                if (global.params.useDll && newDataSymbolRefsDim > oldDataSymbolRefsDim)
                 {
                     for (unsigned int i = oldDataSymbolRefsDim; i < newDataSymbolRefsDim; i++)
                     {
@@ -749,21 +777,7 @@ void membersToDt(ClassDeclaration *cd, dt_t **pdt, ClassDeclaration *concreteTyp
             {
                 if (offset < b->offset)
                     dtnzeros(pdt, b->offset - offset);
-                #if TARGET_WINDOS
-                if (global.params.useDll && cd2->isImportedSymbol())
-                {
-                    assert(dataSymbolRefs != NULL);
-                    DataSymbolRef ref;
-                    ref.offsetInDt = dt_size(*pdt);
-                    ref.referenceOffset = csymoffset;
-                    dataSymbolRefs->push(ref);
-                    dtxoff(pdt, toImport(cd2), 0);
-                }
-                else
-                #endif
-                {
-                    dtxoff(pdt, toSymbol(cd2), csymoffset);
-                }
+                dtxoffDsymbol(pdt, cd2, csymoffset, dataSymbolRefs);
                 break;
             }
         }

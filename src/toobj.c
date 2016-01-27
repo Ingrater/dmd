@@ -67,6 +67,9 @@ void toDebug(ClassDeclaration *cd);
 
 void objc_Module_genmoduleinfo_classes();
 
+void dtxoffVtbl(dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs);
+dt_t** dtxoffDsymbol(dt_t **pdt, Dsymbol *d, unsigned offset, Array<DataSymbolRef>* dataSymbolRefs);
+
 /* ================================================================== */
 
 // Put out instance of ModuleInfo for this Module
@@ -411,22 +414,11 @@ void toObjFile(Dsymbol *ds, bool multiobj)
 
             if (Type::typeinfoclass)
             {
+                // vtbl for ClassInfo
                 #if TARGET_WINDOS
-                if (global.params.useDll && Type::typeinfoclass->isImportedSymbol())
-                {
-                    DataSymbolRef newRef;
-                    newRef.offsetInDt = dt_size(dt);
-                    newRef.referenceOffset = 0;
-                    dataSymbolRefsClassInfo.push(newRef);
-                    Symbol *vtblSymbolImport = toImport(toVtblSymbol(Type::typeinfoclass));
-                    dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
-                }
-                else
-                {
-                    dtxoff(&dt, toVtblSymbol(Type::typeinfoclass), 0, TYnptr); // vtbl for ClassInfo
-                }
+                dtxoffVtbl(&dt, Type::typeinfoclass, &dataSymbolRefsClassInfo);
                 #else
-                dtxoff(&dt, toVtblSymbol(Type::typeinfoclass), 0, TYnptr); // vtbl for ClassInfo
+                dtxoffVtbl(&dt, Type::typeinfoclass, NULL); 
                 #endif
             }
             else
@@ -464,21 +456,9 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             if (cd->baseClass)
             {
                 #if TARGET_WINDOS
-                if (global.params.useDll && cd->baseClass->isImportedSymbol())
-                {
-                    DataSymbolRef newRef;
-                    newRef.offsetInDt = dt_size(dt);
-                    newRef.referenceOffset = 0;
-                    dataSymbolRefsClassInfo.push(newRef);
-                    Symbol *baseClassImport = toImport(toSymbol(cd->baseClass));
-                    dtxoff(&dt, baseClassImport, 0, TYnptr);
-                }
-                else
-                {
-                    dtxoff(&dt, toSymbol(cd->baseClass), 0, TYnptr);
-                }
+                dtxoffDsymbol(&dt, cd->baseClass, 0, &dataSymbolRefsClassInfo);
                 #else
-                dtxoff(&dt, toSymbol(cd->baseClass), 0, TYnptr);
+                dtxoffDsymbol(&dt, cd->baseClass, 0, HK_NULL);
                 #endif
             }
             else
@@ -581,21 +561,11 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                 // Fill in vtbl[]
                 b->fillVtbl(cd, &b->vtbl, 1);
 
+                // ClassInfo
                 #if TARGET_WINDOS
-                if (global.params.useDll && id->isImportedSymbol())
-                {
-                    DataSymbolRef ref;
-                    ref.offsetInDt = dt_size(dt);
-                    ref.referenceOffset = 0;
-                    dataSymbolRefsClassInfo.push(ref);
-                    dtxoff(&dt, toImport(toSymbol(id)), 0, TYnptr);         // ClassInfo
-                }
-                else
-                {
-                    dtxoff(&dt, toSymbol(id), 0, TYnptr);         // ClassInfo
-                }
+                dtxoffDsymbol(&dt, id, 0, &dataSymbolRefsClassInfo);
                 #else
-                dtxoff(&dt, toSymbol(id), 0, TYnptr);         // ClassInfo
+                dtxoffDsymbol(&dt, id, 0, NULL);         
                 #endif
 
                 // vtbl[]
@@ -840,23 +810,11 @@ void toObjFile(Dsymbol *ds, bool multiobj)
 
             if (Type::typeinfoclass)
             {
+                // vtbl for ClassInfo
                 #if TARGET_WINDOS
-                if (global.params.useDll && Type::typeinfoclass->isImportedSymbol())
-                {
-                    // emit relocation information
-                    DataSymbolRef vtblRef;  
-                    vtblRef.offsetInDt = dt_size(dt);
-                    vtblRef.referenceOffset = 0;
-                    dataSymbolRefs.push(vtblRef);
-                    Symbol *vtblSymbolImport = toImport(toVtblSymbol(Type::typeinfoclass));
-                    dtxoff(&dt, vtblSymbolImport, 0, TYnptr);
-                }
-                else
-                {
-                    dtxoff(&dt, toVtblSymbol(Type::typeinfoclass), 0, TYnptr); // vtbl for ClassInfo
-                }
+                dtxoffVtbl(&dt, Type::typeinfoclass, &dataSymbolRefs);
                 #else
-                dtxoff(&dt, toVtblSymbol(Type::typeinfoclass), 0, TYnptr); // vtbl for ClassInfo
+                dtxoffVtbl(&dt, Type::typeinfoclass, NULL); 
                 #endif
             }
             else
@@ -947,20 +905,9 @@ void toObjFile(Dsymbol *ds, bool multiobj)
 
                 // ClassInfo
                 #if TARGET_WINDOS
-                if (global.params.useDll && base->isImportedSymbol())
-                {
-                    DataSymbolRef ref;
-                    ref.offsetInDt = dt_size(dt);
-                    ref.referenceOffset = 0;
-                    dataSymbolRefs.push(ref);
-                    dtxoff(&dt, toImport(toSymbol(base)), 0, TYnptr);
-                }
-                else
-                {
-                    dtxoff(&dt, toSymbol(base), 0, TYnptr);
-                }
+                dtxoffDsymbol(&dt, base, 0, &dataSymbolRefs);
                 #else
-                dtxoff(&dt, toSymbol(base), 0, TYnptr);
+                dtxoffDsymbol(&dt, base, 0, NULL);
                 #endif
 
                 // vtbl[]

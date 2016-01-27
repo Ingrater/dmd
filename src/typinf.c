@@ -47,6 +47,8 @@ Symbol *toInitializer(AggregateDeclaration *ad);
 Symbol *toInitializer(EnumDeclaration *ed);
 TypeInfoDeclaration *getTypeInfoDeclaration(Type *t);
 bool builtinTypeInfo(Type *t);
+void dtxoffVtbl(dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs);
+dt_t** dtxoffDsymbol(dt_t **pdt, Dsymbol *d, unsigned offset, Array<DataSymbolRef>* dataSymbolRefs);
 
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
@@ -173,49 +175,6 @@ private:
             }
     }
 
-    static void dtxoffVtbl(TypeInfoDeclaration *d, dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs)
-    {
-        #if TARGET_WINDOS
-        if (global.params.useDll && cd->isImportedSymbol())
-        {
-            assert(dataSymbolRefs != NULL);
-            DataSymbolRef crossDllRef;
-            crossDllRef.offsetInDt = dt_size(*pdt);
-            crossDllRef.referenceOffset = 0;
-            dataSymbolRefs->push(crossDllRef);
-            dtxoff(pdt, toImport(toVtblSymbol(cd)), 0);
-        }
-        else
-        {
-            dtxoff(pdt, toVtblSymbol(cd), 0);
-        }
-        #else
-        dtxoff(pdt, cd->toVtblSymbol(), 0);
-        #endif
-
-    }
-
-    static void dtxoffTypeInfo(TypeInfoDeclaration *d, dt_t **pdt, TypeInfoDeclaration *ti, Array<DataSymbolRef>* dataSymbolRefs)
-    {
-        #if TARGET_WINDOS
-        if (global.params.useDll && ti->isImportedSymbol())
-        {
-            assert(dataSymbolRefs != NULL);
-            DataSymbolRef crossDllRef;
-            crossDllRef.offsetInDt = dt_size(*pdt);
-            crossDllRef.referenceOffset = 0;
-            dataSymbolRefs->push(crossDllRef);
-            dtxoff(pdt, toImport(ti), 0);
-        }
-        else
-        {
-            dtxoff(pdt, toSymbol(ti), 0);
-        }
-        #else
-        dtxoff(pdt, toSymbol(ti), 0);
-        #endif
-    }
-
 public:
     TypeInfoDtVisitor(dt_t **pdt, Array<DataSymbolRef>* dataSymbolRefs)
         : pdt(pdt)
@@ -228,7 +187,7 @@ public:
         //printf("TypeInfoDeclaration::toDt() %s\n", toChars());
         verifyStructSize(Type::dtypeinfo, 2 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::dtypeinfo, dataSymbolRefs); // vtbl for TypeInfo
+        dtxoffVtbl(pdt, Type::dtypeinfo, dataSymbolRefs); // vtbl for TypeInfo
         dtsize_t(pdt, 0);                        // monitor
     }
 
@@ -237,12 +196,12 @@ public:
         //printf("TypeInfoConstDeclaration::toDt() %s\n", toChars());
         verifyStructSize(Type::typeinfoconst, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfoconst, dataSymbolRefs); // vtbl for TypeInfo_Const
+        dtxoffVtbl(pdt, Type::typeinfoconst, dataSymbolRefs); // vtbl for TypeInfo_Const
         dtsize_t(pdt, 0);                        // monitor
         Type *tm = d->tinfo->mutableOf();
         tm = tm->merge();
         genTypeInfo(tm, NULL);
-        dtxoffTypeInfo(d, pdt, tm->vtinfo, dataSymbolRefs);
+        dtxoffDsymbol(pdt, tm->vtinfo, 0, dataSymbolRefs);
     }
 
     void visit(TypeInfoInvariantDeclaration *d)
@@ -250,13 +209,13 @@ public:
         //printf("TypeInfoInvariantDeclaration::toDt() %s\n", toChars());
         verifyStructSize(Type::typeinfoinvariant, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfoinvariant, dataSymbolRefs); // vtbl for TypeInfo_Invariant
+        dtxoffVtbl(pdt, Type::typeinfoinvariant, dataSymbolRefs); // vtbl for TypeInfo_Invariant
         dtsize_t(pdt, 0);                        // monitor
         Type *tm = d->tinfo->mutableOf();
         tm = tm->merge();
         genTypeInfo(tm, NULL);
 
-        dtxoffTypeInfo(d, pdt, tm->vtinfo, dataSymbolRefs);
+        dtxoffDsymbol(pdt, tm->vtinfo, 0, dataSymbolRefs);
     }
 
     void visit(TypeInfoSharedDeclaration *d)
@@ -264,12 +223,12 @@ public:
         //printf("TypeInfoSharedDeclaration::toDt() %s\n", toChars());
         verifyStructSize(Type::typeinfoshared, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfoshared, dataSymbolRefs); // vtbl for TypeInfo_Shared
+        dtxoffVtbl(pdt, Type::typeinfoshared, dataSymbolRefs); // vtbl for TypeInfo_Shared
         dtsize_t(pdt, 0);                        // monitor
         Type *tm = d->tinfo->unSharedOf();
         tm = tm->merge();
         genTypeInfo(tm, NULL);
-        dtxoffTypeInfo(d, pdt, tm->vtinfo, dataSymbolRefs);
+        dtxoffDsymbol(pdt, tm->vtinfo, 0, dataSymbolRefs);
     }
 
     void visit(TypeInfoWildDeclaration *d)
@@ -277,12 +236,12 @@ public:
         //printf("TypeInfoWildDeclaration::toDt() %s\n", toChars());
         verifyStructSize(Type::typeinfowild, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfowild, dataSymbolRefs); // vtbl for TypeInfo_Wild
+        dtxoffVtbl(pdt, Type::typeinfowild, dataSymbolRefs); // vtbl for TypeInfo_Wild
         dtsize_t(pdt, 0);                        // monitor
         Type *tm = d->tinfo->mutableOf();
         tm = tm->merge();
         genTypeInfo(tm, NULL);
-        dtxoffTypeInfo(d, pdt, tm->vtinfo, dataSymbolRefs);
+        dtxoffDsymbol(pdt, tm->vtinfo, 0, dataSymbolRefs);
     }
 
     void visit(TypeInfoEnumDeclaration *d)
@@ -290,7 +249,7 @@ public:
         //printf("TypeInfoEnumDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfoenum, 7 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfoenum, dataSymbolRefs); // vtbl for TypeInfo_Enum
+        dtxoffVtbl(pdt, Type::typeinfoenum, dataSymbolRefs); // vtbl for TypeInfo_Enum
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tenum);
@@ -307,7 +266,7 @@ public:
         if (sd->memtype)
         {
             genTypeInfo(sd->memtype, NULL);
-            dtxoffTypeInfo(d, pdt, sd->memtype->vtinfo, dataSymbolRefs);        // TypeInfo for enum members
+            dtxoffDsymbol(pdt, sd->memtype->vtinfo, 0, dataSymbolRefs);        // TypeInfo for enum members
         }
         else
             dtsize_t(pdt, 0);
@@ -339,7 +298,7 @@ public:
         //printf("TypeInfoPointerDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfopointer, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfopointer, dataSymbolRefs); // vtbl for TypeInfo_Pointer
+        dtxoffVtbl(pdt, Type::typeinfopointer, dataSymbolRefs); // vtbl for TypeInfo_Pointer
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tpointer);
@@ -347,7 +306,7 @@ public:
         TypePointer *tc = (TypePointer *)d->tinfo;
 
         genTypeInfo(tc->next, NULL);
-        dtxoffTypeInfo(d, pdt, tc->next->vtinfo, dataSymbolRefs); // TypeInfo for type being pointed to
+        dtxoffDsymbol(pdt, tc->next->vtinfo, 0, dataSymbolRefs); // TypeInfo for type being pointed to
     }
 
     void visit(TypeInfoArrayDeclaration *d)
@@ -355,7 +314,7 @@ public:
         //printf("TypeInfoArrayDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfoarray, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfoarray, dataSymbolRefs); // vtbl for TypeInfo_Array
+        dtxoffVtbl(pdt, Type::typeinfoarray, dataSymbolRefs); // vtbl for TypeInfo_Array
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tarray);
@@ -363,7 +322,7 @@ public:
         TypeDArray *tc = (TypeDArray *)d->tinfo;
 
         genTypeInfo(tc->next, NULL);
-        dtxoffTypeInfo(d, pdt, tc->next->vtinfo, dataSymbolRefs); // TypeInfo for array of type
+        dtxoffDsymbol(pdt, tc->next->vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
     }
 
     void visit(TypeInfoStaticArrayDeclaration *d)
@@ -371,7 +330,7 @@ public:
         //printf("TypeInfoStaticArrayDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfostaticarray, 4 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfostaticarray, dataSymbolRefs); // vtbl for TypeInfo_StaticArray
+        dtxoffVtbl(pdt, Type::typeinfostaticarray, dataSymbolRefs); // vtbl for TypeInfo_StaticArray
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tsarray);
@@ -379,7 +338,7 @@ public:
         TypeSArray *tc = (TypeSArray *)d->tinfo;
 
         genTypeInfo(tc->next, NULL);
-        dtxoffTypeInfo(d, pdt, tc->next->vtinfo, dataSymbolRefs); // TypeInfo for array of type
+        dtxoffDsymbol(pdt, tc->next->vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
 
         dtsize_t(pdt, tc->dim->toInteger());         // length
     }
@@ -389,7 +348,7 @@ public:
         //printf("TypeInfoVectorDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfovector, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfovector, dataSymbolRefs); // vtbl for TypeInfo_Vector
+        dtxoffVtbl(pdt, Type::typeinfovector, dataSymbolRefs); // vtbl for TypeInfo_Vector
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tvector);
@@ -397,7 +356,7 @@ public:
         TypeVector *tc = (TypeVector *)d->tinfo;
 
         genTypeInfo(tc->basetype, NULL);
-        dtxoffTypeInfo(d, pdt, tc->basetype->vtinfo, dataSymbolRefs); // TypeInfo for equivalent static array
+        dtxoffDsymbol(pdt, tc->basetype->vtinfo, 0, dataSymbolRefs); // TypeInfo for equivalent static array
     }
 
     void visit(TypeInfoAssociativeArrayDeclaration *d)
@@ -405,7 +364,7 @@ public:
         //printf("TypeInfoAssociativeArrayDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfoassociativearray, 4 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfoassociativearray, dataSymbolRefs); // vtbl for TypeInfo_AssociativeArray
+        dtxoffVtbl(pdt, Type::typeinfoassociativearray, dataSymbolRefs); // vtbl for TypeInfo_AssociativeArray
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Taarray);
@@ -413,10 +372,10 @@ public:
         TypeAArray *tc = (TypeAArray *)d->tinfo;
 
         genTypeInfo(tc->next, NULL);
-        dtxoffTypeInfo(d, pdt, tc->next->vtinfo, dataSymbolRefs); // TypeInfo for array of type
+        dtxoffDsymbol(pdt, tc->next->vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
 
         genTypeInfo(tc->index, NULL);
-        dtxoffTypeInfo(d, pdt, tc->index->vtinfo, dataSymbolRefs); // TypeInfo for array of type
+        dtxoffDsymbol(pdt, tc->index->vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
     }
 
     void visit(TypeInfoFunctionDeclaration *d)
@@ -424,7 +383,7 @@ public:
         //printf("TypeInfoFunctionDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfofunction, 5 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfofunction, dataSymbolRefs); // vtbl for TypeInfo_Function
+        dtxoffVtbl(pdt, Type::typeinfofunction, dataSymbolRefs); // vtbl for TypeInfo_Function
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tfunction);
@@ -432,7 +391,7 @@ public:
         TypeFunction *tc = (TypeFunction *)d->tinfo;
 
         genTypeInfo(tc->next, NULL);
-        dtxoffTypeInfo(d, pdt, tc->next->vtinfo, dataSymbolRefs); // TypeInfo for function return value
+        dtxoffDsymbol(pdt, tc->next->vtinfo, 0, dataSymbolRefs); // TypeInfo for function return value
 
         const char *name = d->tinfo->deco;
         assert(name);
@@ -449,7 +408,7 @@ public:
         //printf("TypeInfoDelegateDeclaration::toDt()\n");
         verifyStructSize(Type::typeinfodelegate, 5 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfodelegate, dataSymbolRefs); // vtbl for TypeInfo_Delegate
+        dtxoffVtbl(pdt, Type::typeinfodelegate, dataSymbolRefs); // vtbl for TypeInfo_Delegate
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tdelegate);
@@ -457,7 +416,7 @@ public:
         TypeDelegate *tc = (TypeDelegate *)d->tinfo;
 
         genTypeInfo(tc->next->nextOf(), NULL);
-        dtxoffTypeInfo(d, pdt, tc->next->nextOf()->vtinfo, dataSymbolRefs); // TypeInfo for delegate return value
+        dtxoffDsymbol(pdt, tc->next->nextOf()->vtinfo, 0, dataSymbolRefs); // TypeInfo for delegate return value
 
         const char *name = d->tinfo->deco;
         assert(name);
@@ -477,7 +436,7 @@ public:
         else
             verifyStructSize(Type::typeinfostruct, 15 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfostruct, dataSymbolRefs); // vtbl for TypeInfo_Struct
+        dtxoffVtbl(pdt, Type::typeinfostruct, dataSymbolRefs); // vtbl for TypeInfo_Struct
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tstruct);
@@ -616,7 +575,7 @@ public:
                 if (t)
                 {
                     genTypeInfo(t, NULL);
-                    dtxoffTypeInfo(d, pdt, t->vtinfo, dataSymbolRefs);
+                    dtxoffDsymbol(pdt, t->vtinfo, 0, dataSymbolRefs);
                 }
                 else
                     dtsize_t(pdt, 0);
@@ -648,7 +607,7 @@ public:
         //printf("TypeInfoInterfaceDeclaration::toDt() %s\n", tinfo->toChars());
         verifyStructSize(Type::typeinfointerface, 3 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfointerface, dataSymbolRefs); // vtbl for TypeInfoInterface
+        dtxoffVtbl(pdt, Type::typeinfointerface, dataSymbolRefs); // vtbl for TypeInfoInterface
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Tclass);
@@ -667,7 +626,7 @@ public:
         //printf("TypeInfoTupleDeclaration::toDt() %s\n", tinfo->toChars());
         verifyStructSize(Type::typeinfotypelist, 4 * Target::ptrsize);
 
-        dtxoffVtbl(d, pdt, Type::typeinfotypelist, dataSymbolRefs); // vtbl for TypeInfoInterface
+        dtxoffVtbl(pdt, Type::typeinfotypelist, dataSymbolRefs); // vtbl for TypeInfoInterface
         dtsize_t(pdt, 0);                        // monitor
 
         assert(d->tinfo->ty == Ttuple);

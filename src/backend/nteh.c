@@ -14,6 +14,7 @@
 #include        <stdio.h>
 #include        <string.h>
 #include        <time.h>
+#include        "root/array.h"
 
 #include        "cc.h"
 #include        "el.h"
@@ -94,7 +95,9 @@ void nteh_filltables()
 #if MARS
     symbol *s = s_table;
     symbol_debug(s);
-    except_fillInEHTable(s);
+    Array<DataSymbolRef> dataSymbolRefs;
+    except_fillInEHTable(s, &dataSymbolRefs);
+    objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
 #endif
 }
 

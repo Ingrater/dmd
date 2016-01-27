@@ -1984,16 +1984,9 @@ void MsCoffObj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_
     if (numRefs == 0)
       return;
 
-    // we are creating a associated section comdat, that means we need to know what to associate with.
-    // thus the incoming dataSymbol must be processed already.
-    assert(dataSym->Sseg > 0);
-
     int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;  // align to NPTRSIZE
 
-    // TODO putting the relocation information into a associated comdat doesn't work. 
-    // Usually somewhere during phobos init something will crash, I don't have a small repro case however.
-    //int linkage = (dataSym->Sclass == SCcomdat) ? IMAGE_SCN_LNK_COMDAT : 0;
-    int linkage = 0;
+    int linkage = (dataSym->Sclass == SCcomdat) ? IMAGE_SCN_LNK_COMDAT : 0;
 
     const int seg =
         MsCoffObj::getsegment(".dllra$B", IMAGE_SCN_CNT_INITIALIZED_DATA |
@@ -2002,8 +1995,13 @@ void MsCoffObj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_
 
     // if the data symbol we are generating relocation information for is a comdat
     // emit the relocation information into a comdat as well and mark it as associated.
+    // This way we do not pull in everything by default.
     if (linkage != 0)
     {
+        // we are creating a associated section comdat, that means we need to know what to associate with.
+        // thus the incoming dataSymbol must be processed already.
+        assert(dataSym->Sseg > 0);
+
         // Generate the dll relocation name, which is symname__reloc
         size_t sflen = strlen(dataSym->Sident);
         char *reloc_name = (char *)alloca(7 + sflen + 1);
@@ -2026,7 +2024,7 @@ void MsCoffObj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_
         SegData[seg]->SDassocseg = dataSym->Sseg;
         outdata(relocData);
     }
-    else
+    else // Otherwise just write the relocation information into the dllra$B section.
     {
         Outbuffer *buf = SegData[seg]->SDbuf;
         if (I64)
