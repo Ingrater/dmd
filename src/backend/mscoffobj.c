@@ -1411,36 +1411,9 @@ void MsCoffObj::ehsections()
     attr = IMAGE_SCN_CNT_UNINITIALIZED_DATA | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
     emitSectionBrace(".bss", "_bss", attr, NULL);
 
-  {
-    /* Dll reallocation section 
-     */
-    int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;
-
-    const int segbg =
-        MsCoffObj::getsegment(".dllra$A", IMAGE_SCN_CNT_INITIALIZED_DATA |
-        align |
-        IMAGE_SCN_MEM_READ);
-    const int segen =
-        MsCoffObj::getsegment(".dllra$C", IMAGE_SCN_CNT_INITIALIZED_DATA |
-        align |
-        IMAGE_SCN_MEM_READ);
-
-    /* Create symbol _minfo_beg that sits just before the .dllra$B section
-    */
-    symbol *dllra_beg = symbol_name("_dllra_beg", SCglobal, tspvoid);
-    dllra_beg->Sseg = segbg;
-    dllra_beg->Soffset = 0;
-    symbuf->write(&dllra_beg, sizeof(dllra_beg));
-    MsCoffObj::bytes(segbg, 0, I64 ? 8 : 4, NULL);
-
-    /* Create symbol _minfo_end that sits just after the .dllra$B section
-    */
-    symbol *dllra_end = symbol_name("_dllra_end", SCglobal, tspvoid);
-    dllra_end->Sseg = segen;
-    dllra_end->Soffset = 0;
-    symbuf->write(&dllra_end, sizeof(dllra_end));
-    MsCoffObj::bytes(segen, 0, I64 ? 8 : 4, NULL);
-  }
+    // Dll relocation section
+    attr = IMAGE_SCN_CNT_INITIALIZED_DATA | align | IMAGE_SCN_MEM_READ;
+    emitSectionBrace(".dllra", "_dllra", attr, NULL);
 
     /*************************************************************************/
 #if 0

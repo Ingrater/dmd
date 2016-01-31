@@ -493,6 +493,9 @@ void genObjFile(Module *m, bool multiobj)
     if (m->marray && m->isRoot())
       objmod->export_symbol(m->marray, 0);
 
+    if (m->munittest && m->isRoot())
+      objmod->export_symbol(m->munittest, 0);
+
     objmod->termfile();
 }
 
