@@ -140,6 +140,7 @@ struct Relocation
 #define RELrel  1       // relative to location to be fixed up
 #define RELseg  2       // 2 byte section
 #define RELaddr32 3     // 4 byte offset
+#define RELrel32 4      // 4 byte offset relative to location to be fixed up
     short val;          // 0, -1, -2, -3, -4, -5
 };
 
@@ -993,6 +994,8 @@ void MsCoffObj::term(const char *objfilename)
                                 rel.r_type = IMAGE_REL_AMD64_SECTION;
                             else if (r->rtype == RELaddr32)
                                 rel.r_type = IMAGE_REL_AMD64_SECREL;
+                            else if (r->rtype == RELrel32)
+                                rel.r_type = IMAGE_REL_AMD64_REL32;
                         }
                         else if (I32)
                         {
@@ -1995,26 +1998,27 @@ void MsCoffObj::markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_s
         relocData->Sseg = seg;
         relocData->Salignment = 1;
         SegData[seg]->SDassocseg = dataSym->Sseg;
-        outdata(relocData);
+        pubdef(seg, relocData, relocData->Soffset);
+        searchfixlist(relocData);
     }
-    else // Otherwise just write the relocation information into the dllra$B section.
+
+    Outbuffer *buf = SegData[seg]->SDbuf;
+    if (I64)
     {
-        Outbuffer *buf = SegData[seg]->SDbuf;
-        if (I64)
+        for (targ_size_t i = 0; i < numRefs; i++)
         {
-            for (targ_size_t i = 0; i < numRefs; i++)
-            {
-                MsCoffObj::reftoident(seg, buf->size(), dataSym, refs[i].offsetInDt, CFoff | CFoffset64);
-                buf->write64(refs[i].referenceOffset);
-            }
+            MsCoffObj::addrel(seg, buf->size(), dataSym, 0, RELrel32, 0);
+            buf->write32(refs[i].offsetInDt);
+            buf->write32(refs[i].referenceOffset);
+            //MsCoffObj::reftoident(seg, buf->size(), dataSym, refs[i].offsetInDt, CFoff | CFoffset64);
         }
-        else
+    }
+    else
+    {
+        for (targ_size_t i = 0; i < numRefs; i++)
         {
-            for (targ_size_t i = 0; i < numRefs; i++)
-            {
-                MsCoffObj::reftoident(seg, buf->size(), dataSym, refs[i].offsetInDt, CFoff);
-                buf->write32(refs[i].referenceOffset);
-            }
+            MsCoffObj::reftoident(seg, buf->size(), dataSym, refs[i].offsetInDt, CFoff);
+            buf->write32(refs[i].referenceOffset);
         }
     }
 }
