@@ -1951,7 +1951,7 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     }
 }
 
-void MsCoffObj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
+void MsCoffObj::markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
 {
     // if the data symbol does not have any cross dll references we don't need to emit any relocation information.
     if (numRefs == 0)

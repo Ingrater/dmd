@@ -97,7 +97,7 @@ void nteh_filltables()
     symbol_debug(s);
     Array<DataSymbolRef> dataSymbolRefs;
     except_fillInEHTable(s, &dataSymbolRefs);
-    objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+    objmod->markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
 #endif
 }
 

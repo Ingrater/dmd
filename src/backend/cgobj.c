@@ -2376,7 +2376,7 @@ void Obj::export_data_symbol(Symbol *s)
     return export_symbol(s, 0);
 }
 
-void Obj::ref_data_symbol(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
+void Obj::markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
 {
     // TODO implement
 }

@@ -75,7 +75,7 @@ symbol *except_gentables()
         outdata(s);                 // output the scope table
 
 #if TARGET_WINDOS
-        objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+        objmod->markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
 #endif
 
         objmod->ehtables(funcsym_p,funcsym_p->Ssize,s);

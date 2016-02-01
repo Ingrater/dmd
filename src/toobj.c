@@ -239,7 +239,7 @@ void genModuleInfo(Module *m)
     if(dataSymbolRefs.dim == 0)
         out_readonly(m->csym);
     outdata(m->csym);
-    objmod->ref_data_symbol(m->csym, dataSymbolRefs.data, dataSymbolRefs.dim);
+    objmod->markCrossDllDataRef(m->csym, dataSymbolRefs.data, dataSymbolRefs.dim);
     #else
     out_readonly(m->csym);
     outdata(m->csym);
@@ -341,7 +341,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             if (dataSymbolRefsInit.dim == 0)
                 out_readonly(sinit);
             outdata(sinit);
-            objmod->ref_data_symbol(sinit, dataSymbolRefsInit.data, dataSymbolRefsInit.dim);
+            objmod->markCrossDllDataRef(sinit, dataSymbolRefsInit.data, dataSymbolRefsInit.dim);
             #else
             ClassDeclaration_toDt(cd, &sinit->Sdt, NULL);
             out_readonly(sinit);
@@ -673,7 +673,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             if (cd->isExport())
                 objmod->export_data_symbol(cd->csym);
             #if TARGET_WINDOS
-            objmod->ref_data_symbol(cd->csym, dataSymbolRefsClassInfo.data, dataSymbolRefsClassInfo.dim);
+            objmod->markCrossDllDataRef(cd->csym, dataSymbolRefsClassInfo.data, dataSymbolRefsClassInfo.dim);
             #endif
 
             //////////////////////////////////////////////
@@ -939,7 +939,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             if (id->isExport())
                 objmod->export_data_symbol(id->csym);
             #if TARGET_WINDOS
-            objmod->ref_data_symbol(id->csym, dataSymbolRefs.data, dataSymbolRefs.dim);
+            objmod->markCrossDllDataRef(id->csym, dataSymbolRefs.data, dataSymbolRefs.dim);
             #endif
         }
 
@@ -995,7 +995,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                 if (sd->isExport())
                     objmod->export_data_symbol(sd->sinit);
                 #if TARGET_WINDOS
-                objmod->ref_data_symbol(sd->sinit, dataSymbolRefs.data, dataSymbolRefs.dim);
+                objmod->markCrossDllDataRef(sd->sinit, dataSymbolRefs.data, dataSymbolRefs.dim);
                 #endif
 
                 // Put out the members
@@ -1122,7 +1122,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                 if (vd->isExport())
                     objmod->export_data_symbol(s);
                 #if TARGET_WINDOS
-                objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+                objmod->markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
                 #endif
             }
         }
@@ -1202,7 +1202,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             if (tid->isExport())
                 objmod->export_data_symbol(s);
             #if TARGET_WINDOS
-            objmod->ref_data_symbol(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+            objmod->markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
             #endif
         }
 
