@@ -3606,9 +3606,20 @@ bool FuncDeclaration::isExport()
         return false;
     // check if any of the parents is a class/struct and if they are exported
     Dsymbol* realParent = parent;
-    while (TemplateMixin *mixin = realParent->isTemplateMixin())
+    while (true)
     {
-      realParent = mixin->parent;
+      if (TemplateMixin *mixin = realParent->isTemplateMixin())
+      {
+        realParent = mixin->parent;
+      }
+      else if (TemplateInstance* instance = realParent->isTemplateInstance())
+      {
+        realParent = instance->parent;
+      }
+      else
+      {
+        break;
+      }
     }
     if (AggregateDeclaration *c = realParent->isAggregateDeclaration())
     {
