@@ -909,16 +909,24 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
                 objmod.external_def("_main");
                 objmod.external_def("__acrtused_con");
             }
+            if(global.params.useDll)
+            {
+                // For dlls or executables which use/are dlls we need the eh-sections
+                objmod.ehsections();
+            }
             objmod.includelib(libname);
             s.Sclass = SCglobal;
         }
         else if (fd.isRtInit())
         {
             if (global.params.isLinux || global.params.isOSX || global.params.isFreeBSD ||
-                global.params.isOpenBSD || global.params.isSolaris ||
-                global.params.mscoff)
+                global.params.isOpenBSD || global.params.isSolaris)
             {
                 objmod.ehsections();   // initialize exception handling sections
+            }
+            else if(global.params.mscoff && !global.params.useDll)
+            {
+                objmod.ehsections();
             }
         }
         else if (fd.isCMain())
@@ -949,6 +957,11 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
             {
                 objmod.external_def("__acrtused");
             }
+            if(global.params.useDll)
+            {
+                // For dlls or executables which use/are dlls we need the eh-sections
+                objmod.ehsections();
+            }
             objmod.includelib(libname);
             s.Sclass = SCglobal;
         }
@@ -966,6 +979,11 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
             else
             {
                 objmod.external_def("__acrtused_dll");
+            }
+            if(global.params.useDll)
+            {
+                // For dlls or executables which use/are dlls we need the eh-sections
+                objmod.ehsections();
             }
             objmod.includelib(libname);
             s.Sclass = SCglobal;
@@ -1317,7 +1335,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
     // Restore symbol table
     cstate.CSpsymtab = symtabsave;
 
-    if (fd.isExport())
+    if (global.params.dll && fd.isExport())
         objmod.export_symbol(s, cast(uint)Para.offset);
 
     for (size_t i = 0; i < irs.deferToObj.dim; i++)

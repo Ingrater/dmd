@@ -80,6 +80,7 @@ struct ASTCodegen
     alias STCfuture                 = dmd.declaration.STCfuture;
     alias STCalias                  = dmd.declaration.STCalias;
     alias STClocal                  = dmd.declaration.STClocal;
+    alias STCexport                 = dmd.declaration.STCexport;
 
     alias Dsymbol                   = dmd.dsymbol.Dsymbol;
     alias Dsymbols                  = dmd.dsymbol.Dsymbols;
@@ -87,7 +88,6 @@ struct ASTCodegen
     alias PROTpackage               = dmd.dsymbol.PROTpackage;
     alias PROTprotected             = dmd.dsymbol.PROTprotected;
     alias PROTpublic                = dmd.dsymbol.PROTpublic;
-    alias PROTexport                = dmd.dsymbol.PROTexport;
     alias PROTundefined             = dmd.dsymbol.PROTundefined;
     alias Prot                      = dmd.dsymbol.Prot;
 

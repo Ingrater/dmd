@@ -2321,6 +2321,11 @@ else
                 fd.inlining = inlining;
             }
         }
+        else if (ps.ident == Id.sharedlibrary)
+        {
+            ps.error("pragma(sharedlibrary) not allowed as statement");
+            return setError();
+        }
         else
         {
             ps.error("unrecognized `pragma(%s)`", ps.ident.toChars());

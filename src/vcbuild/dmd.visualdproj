@@ -409,9 +409,6 @@
   <filesToClean>*.obj;*.cmd;*.build;*.json;*.dep</filesToClean>
  </Config>
  <Folder name="dmd">
-  <Folder name="gen">
-   <File tool="Custom" path="..\..\VERSION" customcmd="copy ..\..\VERSION $(OutDir)\VERSION" uptodateWithSameTime="true" outfile="$(OutDir)\VERSION" />
-  </Folder>
   <Folder name="dmd">
    <Folder name="backend">
     <File path="..\dmd\backend\bcomplex.d" />
@@ -567,6 +564,9 @@
    <File path="..\dmd\utils.d" />
    <File path="..\dmd\visitor.d" />
    <File path="..\win32.mak" />
+  </Folder>
+  <Folder name="gen">
+   <File tool="Custom" path="..\..\VERSION" customcmd="copy ..\..\VERSION $(OutDir)\VERSION" uptodateWithSameTime="true" outfile="$(OutDir)\VERSION" />
   </Folder>
  </Folder>
 </DProject>

@@ -1206,7 +1206,22 @@ private extern (C++) class S2irVisitor : Visitor
                     cs.var.csym = tryblock.jcatchvar;
                 block *bcatch = blx.curblock;
                 if (cs.type)
-                    bcatch.Bcatchtype = toSymbol(cs.type.toBasetype());
+                {
+                    // Handle catching classes which reside in a different dll
+                    Type basetype = cs.type.toBasetype();
+                    bcatch.Bcatchimported = false;
+                    ClassDeclaration basetypeClass = basetype.isClassHandle();
+                    assert(basetypeClass !is null); // D can only catch classes
+                    if (global.params.useDll && basetypeClass.isImportedSymbol())
+                    {
+                        bcatch.Bcatchimported = true;
+                        bcatch.Bcatchtype = toImport(basetypeClass);
+                    }
+                    else
+                    {
+                        bcatch.Bcatchtype = toSymbol(basetype);
+                    }
+                }
                 tryblock.appendSucc(bcatch);
                 block_goto(blx, BCjcatch, null);
                 if (cs.handler !is null)

@@ -320,6 +320,7 @@ extern (C++) final class Module : Package
     uint numlines;              // number of lines in source file
     int isDocFile;              // if it is a documentation input file, not D source
     bool isPackageFile;         // if it is a package.d
+    const(char)[] sharedLibraryId; // Identifier specifying which shared library this module belongs to.
     int needmoduleinfo;
     /**
        How many unit tests have been seen so far in this module. Makes it so the
@@ -878,8 +879,8 @@ extern (C++) final class Module : Package
             immutable code_ArrayEq = "bool _ArrayEq(T1, T2)(T1[] a, T2[] b) {\n if (a.length != b.length) return false;\n foreach (size_t i; 0 .. a.length) { if (a[i] != b[i]) return false; }\n return true; }\n";
             immutable code_ArrayPostblit = "void _ArrayPostblit(T)(T[] a) { foreach (ref T e; a) e.__xpostblit(); }\n";
             immutable code_ArrayDtor = "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
-            immutable code_xopEquals = "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
-            immutable code_xopCmp = "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
+            immutable code_xopEquals = "export bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
+            immutable code_xopCmp = "export bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
             Identifier arreq = Id._ArrayEq;
             Identifier xopeq = Identifier.idPool("_xopEquals");
             Identifier xopcmp = Identifier.idPool("_xopCmp");

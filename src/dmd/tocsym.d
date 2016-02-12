@@ -46,6 +46,7 @@ import dmd.typinf;
 import dmd.visitor;
 import dmd.irstate;
 import dmd.dmangle;
+import dmd.todt;
 
 import dmd.backend.cdef;
 import dmd.backend.cc;
@@ -495,13 +496,22 @@ Symbol *toImport(Symbol *sym)
 
 Symbol *toImport(Dsymbol ds)
 {
-    if (!ds.isym)
+    if(global.params.isWindows)
     {
+      // Only the windows plattform needs import symbols
+      if (!ds.isym)
+      {
         if (!ds.csym)
-            ds.csym = toSymbol(ds);
+          ds.csym = toSymbol(ds);
         ds.isym = toImport(ds.csym);
+      }
+      return ds.isym;
     }
-    return ds.isym;
+
+    // Return the c-symbol on all other plattforms
+    if (!ds.csym)
+      ds.csym = toSymbol(ds);
+    return ds.csym;
 }
 
 /*************************************
@@ -665,7 +675,7 @@ Symbol* toSymbol(StructLiteralExp sle)
     s.Stype = t;
     sle.sym = s;
     scope DtBuilder dtb = new DtBuilder();
-    Expression_toDt(sle, dtb);
+    Expression_toDt(sle, dtb, null);
     s.Sdt = dtb.finish();
     outdata(s);
     return sle.sym;
@@ -713,7 +723,7 @@ Symbol* toSymbolCpp(ClassDeclaration cd)
         s.Sfl = FLdata;
         s.Sflags |= SFLnodebug;
         scope DtBuilder dtb = new DtBuilder();
-        cpp_type_info_ptr_toDt(cd, dtb);
+        cpp_type_info_ptr_toDt(cd, dtb, null);
         s.Sdt = dtb.finish();
         outdata(s);
         cd.cpp_type_info_ptr_sym = s;

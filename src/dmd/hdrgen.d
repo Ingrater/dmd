@@ -1997,6 +1997,8 @@ public:
             buf.writestring("@nogc ");
         if (d.storage_class & STCdisable)
             buf.writestring("@disable ");
+        if (d.storage_class & STCexport)
+            buf.writestring("export ");
 
         buf.writestring("~this()");
         bodyToBuffer(d);
@@ -3248,6 +3250,7 @@ extern (C++) const(char)* stcToChars(ref StorageClass stc)
         SCstring(STCdisable, TOKat, "@disable"),
         SCstring(STCfuture, TOKat, "@__future"),
         SCstring(STClocal, TOKat, "__local"),
+        SCstring(STCexport, TOKexport),
         SCstring(0, TOKreserved)
     ];
     for (int i = 0; table[i].stc; i++)
@@ -3359,8 +3362,6 @@ extern (C++) const(char)* protectionToChars(PROTKIND kind)
         return "protected";
     case PROTpublic:
         return "public";
-    case PROTexport:
-        return "export";
     default:
         assert(0);
     }

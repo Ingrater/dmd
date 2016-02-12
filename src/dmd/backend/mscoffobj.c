@@ -37,6 +37,10 @@
 
 #include        "mscoff.h"
 
+#if _MSC_VER
+#include        <alloca.h>
+#endif
+
 static Outbuffer *fobjbuf;
 
 static char __file__[] = __FILE__;      // for tassert.h
@@ -140,6 +144,7 @@ struct Relocation
     unsigned targseg;   // if !=0, then location is to be fixed up
                         // to address of start of this segment
     unsigned char rtype;   // RELxxxx
+#define RELrel32 4      // 4 byte offset relative to location to be fixed up
     short val;          // 0, -1, -2, -3, -4, -5
 };
 
@@ -945,6 +950,8 @@ void MsCoffObj::term(const char *objfilename)
                                 rel.r_type = IMAGE_REL_AMD64_SECTION;
                             else if (r->rtype == RELaddr32)
                                 rel.r_type = IMAGE_REL_AMD64_SECREL;
+                            else if (r->rtype == RELrel32)
+                                rel.r_type = IMAGE_REL_AMD64_REL32;
                         }
                         else if (I32)
                         {
@@ -957,6 +964,8 @@ void MsCoffObj::term(const char *objfilename)
                                 rel.r_type = IMAGE_REL_I386_SECTION;
                             else if (r->rtype == RELaddr32)
                                 rel.r_type = IMAGE_REL_I386_SECREL;
+                            else if (r->rtype == RELrel32)
+                                rel.r_type = IMAGE_REL_I386_REL32;
                         }
                         else
                             assert(false); // not implemented for I16
@@ -1248,6 +1257,13 @@ void MsCoffObj::ehsections()
 
     attr = IMAGE_SCN_CNT_UNINITIALIZED_DATA | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
     emitSectionBrace(".bss", "_bss", attr, NULL);
+
+    if(config.wflags & WFuseDll)
+    {
+        // Dll relocation section
+        attr = IMAGE_SCN_CNT_INITIALIZED_DATA | align | IMAGE_SCN_MEM_READ;
+        emitSectionBrace(".dllrl", "_dllrl", attr, NULL);
+    }
 
     /*************************************************************************/
 #if 0
@@ -1771,13 +1787,93 @@ char *obj_mangle2(Symbol *s,char *dest)
 
 void MsCoffObj::export_symbol(Symbol *s,unsigned argsize)
 {
-    char dest[DEST_LEN+1];
-    char *destr = obj_mangle2(s, dest);
-
-    int seg = seg_drectve();
     //printf("MsCoffObj::export_symbol(%s,%d)\n",s->Sident,argsize);
+    if (config.wflags & WFdll) // only export symbols when compiling with -shared
+    {
+        char dest[DEST_LEN+1];
+        char *destr = obj_mangle2(s, dest);
+
+        int seg = seg_drectve();
+        SegData[seg]->SDbuf->write(" /EXPORT:", 9);
+        SegData[seg]->SDbuf->write(destr, strlen(destr));
+    }
+}
+
+void MsCoffObj::export_data_symbol(Symbol *s)
+{
+    //printf("MsCoffObj::export_data_symbol(%s)\n", s->Sident);
+    if ((config.wflags & WFdll) == 0) // only export symbols when generating code for a dll
+        return;
+
+    char idBuf[DEST_LEN + 1];
+    char* id = obj_mangle2(s, idBuf);
+    int seg = seg_drectve();
     SegData[seg]->SDbuf->write(" /EXPORT:", 9);
-    SegData[seg]->SDbuf->write(dest, strlen(dest));
+    SegData[seg]->SDbuf->write(id, strlen(id));
+    SegData[seg]->SDbuf->write(",DATA", 5);
+}
+
+void MsCoffObj::markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
+{
+    // if the data symbol does not have any cross dll references we don't need to emit any relocation information.
+    if (numRefs == 0 || (config.wflags & WFuseDll) == 0)
+      return;
+
+    int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;  // align to NPTRSIZE
+
+    int linkage = (dataSym->Sclass == SCcomdat) ? IMAGE_SCN_LNK_COMDAT : 0;
+
+    const int seg =
+        MsCoffObj::getsegment(".dllrl$B", IMAGE_SCN_CNT_INITIALIZED_DATA |
+        align |
+        IMAGE_SCN_MEM_READ | linkage);
+
+    // if the data symbol we are generating relocation information for is a comdat
+    // emit the relocation information into a comdat as well and mark it as associated.
+    // This way we do not pull in everything by default.
+    if (linkage != 0)
+    {
+        // we are creating a associated section comdat, that means we need to know what to associate with.
+        // thus the incoming dataSymbol must be processed already.
+        assert(dataSym->Sseg > 0);
+
+        // Generate the dll relocation name, which is symname__reloc
+        size_t sflen = strlen(dataSym->Sident);
+        char *reloc_name = (char *)alloca(7 + sflen + 1);
+        assert(reloc_name);
+        memcpy(reloc_name, dataSym->Sident, sflen);
+        memcpy(reloc_name + sflen, "__reloc", 8); // include terminating 0
+
+        symbol *relocData = symbol_name(reloc_name, SCstatic, tsint);
+        symbol_keep(relocData);
+        symbol_debug(relocData);
+
+        DtBuilder dtb;
+        for (targ_size_t i = 0; i < numRefs; i++)
+        {
+
+            dtb.xoff(dataSym, refs[i].offsetInDt);
+            dtb.size(refs[i].referenceOffset);
+        }
+        relocData->Sdt = dtb.finish();
+
+        relocData->Sseg = seg;
+        relocData->Salignment = 1;
+        SegData[seg]->SDassocseg = dataSym->Sseg;
+        pubdef(seg, relocData, relocData->Soffset);
+        searchfixlist(relocData);
+    }
+
+    Outbuffer *buf = SegData[seg]->SDbuf;
+    for (targ_size_t i = 0; i < numRefs; i++)
+    {
+        // We use relative offsets both in 32-bit and 64-bit
+        // In 64-bit they safe executable size (compared to full 64-bit pointers)
+        // In 32-bit they prevent a excessive amount of "real" dll relocations.
+        MsCoffObj::addrel(seg, buf->size(), dataSym, 0, RELrel32, 0);
+        buf->write32(refs[i].offsetInDt);
+        buf->write32(refs[i].referenceOffset);
+    }
 }
 
 /*******************************

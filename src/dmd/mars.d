@@ -169,6 +169,7 @@ Where:
   -profile=gc      profile runtime allocations
   -release         compile release version
   -shared          generate shared library (DLL)
+  -useShared       enable the use of D shared libraries in the generated executable
   -transition=<id> help with language change identified by 'id'
   -transition=?    list all language changes
   -unittest        compile in unit tests
@@ -215,7 +216,7 @@ extern (C++) void genCmain(Scope* sc)
     /* The D code to be generated is provided as D source code in the form of a string.
      * Note that Solaris, for unknown reasons, requires both a main() and an _main()
      */
-    immutable cmaincode =
+    immutable cmaincodeGeneric =
     q{
         extern(C)
         {
@@ -228,8 +229,35 @@ extern (C++) void genCmain(Scope* sc)
             version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }
         }
     };
+    static if (TARGET_WINDOS)
+    {
+        // Note: _d_dll_init must be called before _d_run_main because _d_run_main is within the druntime.dll.
+        // But _d_dll_init needs access to the executable local symbols to access the executables sections.
+        immutable cmaincodeWin =
+        q{
+            extern(C)
+            {
+                int _d_run_main(int argc, char **argv, void* mainFunc);
+                int _Dmain(char[][] args);
+                void _d_dll_init(void*);
+                int main(int argc, char **argv)
+                {
+                    _d_dll_init(null);
+                    return _d_run_main(argc, argv, &_Dmain);
+                }
+            }
+        };
+    }
     Identifier id = Id.entrypoint;
     auto m = new Module("__entrypoint.d", id, 0, 0);
+    static if (TARGET_WINDOS)
+    {
+        auto cmaincode = (!global.params.useDll || global.params.betterC) ? cmaincodeGeneric : cmaincodeWin;
+    }
+    else
+    {
+        auto cmaincode = cmaincodeGeneric;
+    }
     scope p = new Parser!ASTCodegen(m, cmaincode, false);
     p.scanloc = Loc();
     p.nextToken();
@@ -472,8 +500,18 @@ Language changes listed by -transition=id:
     }
     static if (TARGET_WINDOS)
     {
+        // -shared implies -useShared
+        if (global.params.dll)
+            global.params.useDll = true;
+
+        // full dll support is currently only implemented when targeting the microsoft linker
+        if (global.params.useDll && !global.params.mscoff)
+            global.params.useDll = false;
+
         if (!global.params.mscrtlib)
-            global.params.mscrtlib = "libcmt";
+        {
+            global.params.mscrtlib = global.params.useDll ? "msvcrt" : "libcmt";
+        }
     }
     if (global.params.release)
     {
@@ -1283,6 +1321,9 @@ private void setDefaultLibrary()
                 global.params.defaultlibname = "phobos32mscoff";
             else
                 global.params.defaultlibname = "phobos";
+
+            if(global.params.useDll)
+                global.params.defaultlibname = (global.params.defaultlibname[0..strlen(global.params.defaultlibname)] ~ "s\0").ptr;
         }
         else static if (TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
         {
@@ -1597,6 +1638,18 @@ private bool parseCommandLine(const ref Strings arguments, const size_t argc, re
             }
             else if (strcmp(p + 1, "shared") == 0)
                 params.dll = true;
+            else if (strcmp(p + 1, "useShared") == 0)
+            {
+                static if(TARGET_WINDOS)
+                {
+                    // the useShared flag is only supported on windows
+                    global.params.useDll = true;
+                }
+                else
+                {
+                    goto Lerror;
+                }
+            }
             else if (strcmp(p + 1, "dylib") == 0)
             {
                 static if (TARGET_OSX)
