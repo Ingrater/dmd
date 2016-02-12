@@ -473,8 +473,9 @@ struct block
 #if MARS
         struct
         {   Symbol *catchtype;          // one type for each catch block
+            bool imported;
             #define Bcatchtype BS.BIJCATCH.catchtype
-
+            #define Bcatchimported BS.BIJCATCH.imported
             unsigned *actionTable;      // EH_DWARF: indices into typeTable, first is # of entries
         } BIJCATCH;                     // BCjcatch
 #endif

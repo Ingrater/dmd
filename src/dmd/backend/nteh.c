@@ -94,8 +94,7 @@ void nteh_filltables()
 {
 #if MARS
     symbol *s = s_table;
-    symbol_debug(s);
-    except_fillInEHTable(s);
+    except_gentables(s);
 #endif
 }
 
@@ -108,9 +107,8 @@ void nteh_gentables(Symbol *sfunc)
 {
     symbol *s = s_table;
     symbol_debug(s);
-#if MARS
-    //except_fillInEHTable(s);
-#else
+
+#ifndef MARS
     /* NTEH table for C.
      * The table consists of triples:
      *  parent index

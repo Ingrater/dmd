@@ -33,6 +33,7 @@ import dmd.mtype;
 import dmd.tokens;
 import dmd.semantic;
 import dmd.visitor;
+import ddmd.dmodule;
 
 enum Sizeok : int
 {
@@ -674,7 +675,50 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
     override final bool isExport()
     {
-        return protection.kind == PROTexport;
+        if (storage_class & STCexport) // if directly exported, even if private
+            return true;
+        if (protection.kind <= PROTprivate) // not accessible, no need to check parent
+            return false;
+        // check if any of the parents is a class/struct and if they are exported
+        Dsymbol realParent = parent;
+        while (true)
+        {
+            if (TemplateMixin templateMixin = realParent.isTemplateMixin())
+            {
+                realParent = templateMixin.parent;
+            }
+            else if (TemplateInstance instance = realParent.isTemplateInstance())
+            {
+                realParent = instance.parent;
+            }
+            else
+            {
+                break;
+            }
+        }
+        if (AggregateDeclaration c = realParent.isAggregateDeclaration())
+        {
+            return c.isExport();
+        }
+        return false;
+    }
+
+    override final bool isImportedSymbol()
+    {
+        if (!isExport())
+            return false;
+        Dsymbol curParent = parent;
+        if (parent is null)
+            return false;
+        Module _module = curParent.isModule();
+        while (_module is null)
+        {
+            curParent = curParent.parent;
+            if (curParent is null)
+                return false;
+            _module = curParent.isModule();
+        }
+        return !_module.isRoot();
     }
 
     /*******************************************

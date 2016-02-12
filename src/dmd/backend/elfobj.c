@@ -2290,6 +2290,15 @@ void Obj::export_symbol(Symbol *s,unsigned argsize)
     //dbg_printf("Obj::export_symbol(%s,%d)\n",s->Sident,argsize);
 }
 
+void Obj::export_data_symbol(Symbol *s)
+{
+    export_symbol(s, 0);
+}
+
+void Obj::markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
+{
+}
+
 /*******************************
  * Update data information about symbol
  *      align for output and assign segment
