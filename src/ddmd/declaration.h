@@ -94,12 +94,13 @@ enum PINLINE;
 #define STCexptemp       0x800000000000LL // temporary variable that has lifetime restricted to an expression
 #define STCmaybescope    0x1000000000000LL // parameter might be 'scope'
 #define STCscopeinferred 0x2000000000000LL // 'scope' has been inferred and should not be part of mangling
+#define STCexport        0x4000000000000LL // Make available accross shared library boundaries.
 
 const StorageClass STCStorageClass = (STCauto | STCscope | STCstatic | STCextern | STCconst | STCfinal |
     STCabstract | STCsynchronized | STCdeprecated | STCoverride | STClazy | STCalias |
     STCout | STCin |
     STCmanifest | STCimmutable | STCshared | STCwild | STCnothrow | STCnogc | STCpure | STCref | STCtls |
-    STCgshared | STCproperty | STCsafe | STCtrusted | STCsystem | STCdisable);
+    STCgshared | STCproperty | STCsafe | STCtrusted | STCsystem | STCdisable | STCexport);
 
 struct Match
 {
@@ -310,6 +311,8 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     const char *toChars();
+    bool isExport();
+    bool isImportedSymbol();
 
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }

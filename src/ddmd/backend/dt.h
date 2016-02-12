@@ -4,6 +4,7 @@
 #define DT_H    1
 
 #include <stddef.h>     // for size_t
+#include "array.h"
 
 #if __APPLE__ && __i386__
     /* size_t is 'unsigned long', which makes it mangle differently
@@ -18,6 +19,7 @@
 struct dt_t;
 struct Symbol;
 typedef unsigned        tym_t;          // data type big enough for type masks
+struct DataSymbolRef;
 
 void dt_free(dt_t *);
 void dt_term();
@@ -56,7 +58,7 @@ public:
     void xoff(Symbol *s, unsigned offset, tym_t ty);
     dt_t *xoffpatch(Symbol *s, unsigned offset, tym_t ty);
     void xoff(Symbol *s, unsigned offset);
-    Symbol* dtoff(dt_t *dt, unsigned offset);
+    Symbol* dtoff(dt_t *dt, unsigned offset, Array<DataSymbolRef>* dataSymbolRefs = NULL);
     void coff(unsigned offset);
     void cat(dt_t *dt);
     void cat(DtBuilder *dtb);

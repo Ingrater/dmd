@@ -42,6 +42,7 @@ import ddmd.visitor;
 
 import ddmd.backend.cc;
 import ddmd.backend.dt;
+import ddmd.backend.obj;
 
 alias toSymbol = ddmd.tocsym.toSymbol;
 alias toSymbol = ddmd.glue.toSymbol;
@@ -56,17 +57,78 @@ alias toSymbol = ddmd.glue.toSymbol;
 
 alias Dts = Array!(dt_t*);
 
+extern(C++) void dtxoffVtbl(DtBuilder dtb, ClassDeclaration cd, Array!(DataSymbolRef)* dataSymbolRefs)
+{
+    if (global.params.useDll && cd.isImportedSymbol())
+    {
+        assert(dataSymbolRefs !is null);
+        DataSymbolRef crossDllRef;
+        crossDllRef.offsetInDt = dtb.length();
+        crossDllRef.referenceOffset = 0;
+        dataSymbolRefs.push(crossDllRef);
+        dtb.xoff(toImport(toVtblSymbol(cd)), 0);
+    }
+    else
+    {
+        dtb.xoff(toVtblSymbol(cd), 0);
+    }
+}
+
+extern(C++) void dtxoffDsymbol(DtBuilder dtb, Dsymbol d, uint offset, Array!(DataSymbolRef)* dataSymbolRefs)
+{
+    if (global.params.useDll && d.isImportedSymbol())
+    {
+        assert(dataSymbolRefs != null);
+        DataSymbolRef crossDllRef;
+        crossDllRef.offsetInDt = dtb.length();
+        crossDllRef.referenceOffset = offset;
+        dataSymbolRefs.push(crossDllRef);
+        dtb.xoff(toImport(d), 0);
+    }
+    else
+    {
+        dtb.xoff(toSymbol(d), offset);
+    }
+}
+
+private void dtxoffInitializer(T)(DtBuilder dtb, T d, uint offset, Array!(DataSymbolRef)* dataSymbolRefs)
+{
+    if (global.params.useDll && d.isImportedSymbol())
+    {
+        assert(dataSymbolRefs != null);
+        DataSymbolRef crossDllRef;
+        crossDllRef.offsetInDt = dtb.length();
+        crossDllRef.referenceOffset = offset;
+        dataSymbolRefs.push(crossDllRef);
+        dtb.xoff(toImport(toInitializer(d)), 0);
+    }
+    else
+    {
+        dtb.xoff(toInitializer(d), offset);
+    }
+}
+
+private void offsetDataSymbolRefs(DataSymbolRef[] dataSymbolRefs, uint offset)
+{
+    foreach(ref dataSymbolRef; dataSymbolRefs)
+    {
+        dataSymbolRef.offsetInDt += offset;
+    }
+}
+
 /* ================================================================ */
 
-extern (C++) void Initializer_toDt(Initializer init, DtBuilder dtb)
+extern (C++) void Initializer_toDt(Initializer init, DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
 {
     extern (C++) class InitToDt : Visitor
     {
         DtBuilder dtb;
+        Array!(DataSymbolRef)* dataSymbolRefs;
 
-        this(DtBuilder dtb)
+        this(DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
         {
             this.dtb = dtb;
+            this.dataSymbolRefs = dataSymbolRefs;
         }
 
         alias visit = super.visit;
@@ -116,10 +178,22 @@ extern (C++) void Initializer_toDt(Initializer init, DtBuilder dtb)
 
                 assert(length < ai.dim);
                 scope dtb = new DtBuilder();
-                Initializer_toDt(ai.value[i], dtb);
+                Array!(DataSymbolRef) elemDataSymbolRefs;
+                Initializer_toDt(ai.value[i], dtb, (dataSymbolRefs is null) ? null : &elemDataSymbolRefs);
                 if (dts[length])
                     error(ai.loc, "duplicate initializations for index `%d`", length);
                 dts[length] = dtb.finish();
+
+                if(dataSymbolRefs !is null)
+                {
+                    // apply the offset of the current element to the generated dll relocation information
+                    for(int refI=0; refI < elemDataSymbolRefs.dim; refI++)
+                    {
+                        elemDataSymbolRefs[refI].offsetInDt += length * size;
+                    }
+                    dataSymbolRefs.append(&elemDataSymbolRefs);
+                }
+
                 length++;
             }
 
@@ -144,7 +218,7 @@ extern (C++) void Initializer_toDt(Initializer init, DtBuilder dtb)
                     if (!dtdefault)
                     {
                         scope dtb = new DtBuilder();
-                        Expression_toDt(edefault, dtb);
+                        Expression_toDt(edefault, dtb, null);
                         dtdefault = dtb.finish();
                     }
                     dtbarray.repeat(dtdefault, n);
@@ -168,7 +242,7 @@ extern (C++) void Initializer_toDt(Initializer init, DtBuilder dtb)
                             if (!dtdefault)
                             {
                                 scope dtb = new DtBuilder();
-                                Expression_toDt(edefault, dtb);
+                                Expression_toDt(edefault, dtb, null);
                                 dtdefault = dtb.finish();
                             }
 
@@ -205,25 +279,27 @@ extern (C++) void Initializer_toDt(Initializer init, DtBuilder dtb)
         {
             //printf("ExpInitializer.toDt() %s\n", ei.exp.toChars());
             ei.exp = ei.exp.optimize(WANTvalue);
-            Expression_toDt(ei.exp, dtb);
+            Expression_toDt(ei.exp, dtb, dataSymbolRefs);
         }
     }
 
-    scope v = new InitToDt(dtb);
+    scope v = new InitToDt(dtb, dataSymbolRefs);
     init.accept(v);
 }
 
 /* ================================================================ */
 
-extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
+extern (C++) void Expression_toDt(Expression e, DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
 {
     extern (C++) class ExpToDt : Visitor
     {
         DtBuilder dtb;
+        Array!(DataSymbolRef)* dataSymbolRefs;
 
-        this(DtBuilder dtb)
+        this(DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
         {
             this.dtb = dtb;
+            this.dataSymbolRefs = dataSymbolRefs;
         }
 
         alias visit = super.visit;
@@ -259,7 +335,7 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
                 }
                 else //casting from class to class
                 {
-                    Expression_toDt(e.e1, dtb);
+                    Expression_toDt(e.e1, dtb, null);
                 }
                 return;
             }
@@ -441,7 +517,7 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
             scope dtbarray = new DtBuilder();
             for (size_t i = 0; i < e.elements.dim; i++)
             {
-                Expression_toDt(e.getElement(i), dtbarray);
+                Expression_toDt(e.getElement(i), dtbarray, null);
             }
 
             Type t = e.type.toBasetype();
@@ -474,7 +550,7 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
         {
             //printf("StructLiteralExp.toDt() %s, ctfe = %d\n", sle.toChars(), sle.ownedByCtfe);
             assert(sle.sd.fields.dim - sle.sd.isNested() <= sle.elements.dim);
-            membersToDt(sle.sd, dtb, sle.elements, 0, null);
+            membersToDt(sle.sd, dtb, dataSymbolRefs, sle.elements, 0, null);
         }
 
         override void visit(SymOffExp e)
@@ -492,7 +568,7 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
                 e.error("non-constant expression `%s`", e.toChars());
                 return;
             }
-            dtb.xoff(toSymbol(e.var), cast(uint)e.offset);
+            dtxoffDsymbol(dtb, e.var, cast(uint)e.offset, dataSymbolRefs);
         }
 
         override void visit(VarExp e)
@@ -509,14 +585,14 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
                     return;
                 }
                 v.inuse++;
-                Initializer_toDt(v._init, dtb);
+                Initializer_toDt(v._init, dtb, dataSymbolRefs);
                 v.inuse--;
                 return;
             }
             SymbolDeclaration sd = e.var.isSymbolDeclaration();
             if (sd && sd.dsym)
             {
-                StructDeclaration_toDt(sd.dsym, dtb);
+                StructDeclaration_toDt(sd.dsym, dtb, dataSymbolRefs);
                 return;
             }
             version (none)
@@ -559,7 +635,7 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
                 }
                 else
                     elem = e.e1;
-                Expression_toDt(elem, dtb);
+                Expression_toDt(elem, dtb, null);
             }
         }
 
@@ -584,15 +660,14 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
             if (Type t = isType(e.obj))
             {
                 genTypeInfo(t, null);
-                Symbol *s = toSymbol(t.vtinfo);
-                dtb.xoff(s, 0);
+                dtxoffDsymbol(dtb, t.vtinfo, 0, dataSymbolRefs);
                 return;
             }
             assert(0);
         }
     }
 
-    scope v = new ExpToDt(dtb);
+    scope v = new ExpToDt(dtb, dataSymbolRefs);
     e.accept(v);
 }
 
@@ -600,19 +675,19 @@ extern (C++) void Expression_toDt(Expression e, DtBuilder dtb)
 
 // Generate the data for the static initializer.
 
-extern (C++) void ClassDeclaration_toDt(ClassDeclaration cd, DtBuilder dtb)
+extern (C++) void ClassDeclaration_toDt(ClassDeclaration cd, DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
 {
     //printf("ClassDeclaration.toDt(this = '%s')\n", cd.toChars());
 
-    membersToDt(cd, dtb, null, 0, cd);
+    membersToDt(cd, dtb, dataSymbolRefs, null, 0, cd);
 
     //printf("-ClassDeclaration.toDt(this = '%s')\n", cd.toChars());
 }
 
-extern (C++) void StructDeclaration_toDt(StructDeclaration sd, DtBuilder dtb)
+extern (C++) void StructDeclaration_toDt(StructDeclaration sd, DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
 {
     //printf("+StructDeclaration.toDt(), this='%s'\n", sd.toChars());
-    membersToDt(sd, dtb, null, 0, null);
+    membersToDt(sd, dtb, dataSymbolRefs, null, 0, null);
 
     //printf("-StructDeclaration.toDt(), this='%s'\n", sd.toChars());
 }
@@ -623,13 +698,13 @@ extern (C++) void StructDeclaration_toDt(StructDeclaration sd, DtBuilder dtb)
  * Params:
  *      cd = C++ class
  */
-extern (C++) void cpp_type_info_ptr_toDt(ClassDeclaration cd, DtBuilder dtb)
+extern (C++) void cpp_type_info_ptr_toDt(ClassDeclaration cd, DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
 {
     //printf("cpp_type_info_ptr_toDt(this = '%s')\n", cd.toChars());
     assert(cd.isCPPclass());
 
     // Put in first two members, the vtbl[] and the monitor
-    dtb.xoff(toVtblSymbol(ClassDeclaration.cpp_type_info_ptr), 0);
+    dtxoffVtbl(dtb, ClassDeclaration.cpp_type_info_ptr, dataSymbolRefs);
     dtb.size(0);             // monitor
 
     // Create symbol for C++ type info
@@ -657,6 +732,7 @@ extern (C++) void cpp_type_info_ptr_toDt(ClassDeclaration cd, DtBuilder dtb)
  */
 
 private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
+        Array!(DataSymbolRef)* dataSymbolRefs,
         Expressions* elements, size_t firstFieldIndex,
         ClassDeclaration concreteType,
         BaseClass*** ppb = null)
@@ -687,7 +763,7 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
             size_t index = 0;
             for (ClassDeclaration c = cdb.baseClass; c; c = c.baseClass)
                 index += c.fields.dim;
-            membersToDt(cdb, dtb, elements, index, concreteType);
+            membersToDt(cdb, dtb, dataSymbolRefs, elements, index, concreteType);
             offset = cdb.structsize;
         }
         else if (InterfaceDeclaration id = cd.isInterfaceDeclaration())
@@ -705,7 +781,7 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
                     //printf("    cd2 %s csymoffset = x%x\n", cd2 ? cd2.toChars() : "null", csymoffset);
                     if (csymoffset != ~0)
                     {
-                        dtb.xoff(toSymbol(cd2), csymoffset);
+                        dtxoffDsymbol(dtb, cd2, csymoffset, dataSymbolRefs);
                         offset += Target.ptrsize;
                         break;
                     }
@@ -714,7 +790,7 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
         }
         else
         {
-            dtb.xoff(toVtblSymbol(concreteType), 0);  // __vptr
+            dtxoffVtbl(dtb, concreteType, dataSymbolRefs); // __vptr
             offset = Target.ptrsize;
             if (!cd.cpp)
             {
@@ -738,7 +814,7 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
             BaseClass* b = **ppb;
             if (offset < b.offset)
                 dtb.nzeros(b.offset - offset);
-            membersToDt(cd.interfaces.ptr[i].sym, dtb, elements, firstFieldIndex, concreteType, ppb);
+            membersToDt(cd.interfaces.ptr[i].sym, dtb, dataSymbolRefs, elements, firstFieldIndex, concreteType, ppb);
             //printf("b.offset = %d, b.sym.structsize = %d\n", (int)b.offset, (int)b.sym.structsize);
             offset = b.offset + b.sym.structsize;
         }
@@ -794,6 +870,7 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
             dtb.nzeros(vd.offset - offset);
 
         scope dtbx = new DtBuilder();
+        auto oldDataSymbolRefsDim = (dataSymbolRefs) ? dataSymbolRefs.dim : 0;
         if (elements)
         {
             Expression e = (*elements)[firstFieldIndex + k];
@@ -801,7 +878,7 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
             if (tb.ty == Tsarray)
                 toDtElem((cast(TypeSArray)tb), dtbx, e);
             else
-                Expression_toDt(e, dtbx);    // convert e to an initializer dt
+                Expression_toDt(e, dtbx, dataSymbolRefs);    // convert e to an initializer dt
         }
         else
         {
@@ -818,17 +895,21 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
                 if (ei && tb.ty == Tsarray)
                     toDtElem((cast(TypeSArray)tb), dtbx, ei.exp);
                 else
-                    Initializer_toDt(init, dtbx);
+                    Initializer_toDt(init, dtbx, dataSymbolRefs);
             }
             else if (offset <= vd.offset)
             {
                 //printf("\t\tdefault initializer\n");
-                Type_toDt(vd.type, dtbx);
+                Type_toDt(vd.type, dtbx, dataSymbolRefs);
             }
             if (dtbx.isZeroLength())
                 continue;
         }
 
+        if(dataSymbolRefs !is null)
+        {
+            offsetDataSymbolRefs((*dataSymbolRefs)[oldDataSymbolRefsDim..dataSymbolRefs.dim], dtb.length());
+        }
         dtb.cat(dtbx);
         offset = cast(uint)(vd.offset + vd.type.size());
     }
@@ -840,16 +921,18 @@ private void membersToDt(AggregateDeclaration ad, DtBuilder dtb,
 
 /* ================================================================= */
 
-extern (C++) void Type_toDt(Type t, DtBuilder dtb)
+extern (C++) void Type_toDt(Type t, DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
 {
     extern (C++) class TypeToDt : Visitor
     {
     public:
         DtBuilder dtb;
+        Array!(DataSymbolRef)* dataSymbolRefs;
 
-        this(DtBuilder dtb)
+        this(DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
         {
             this.dtb = dtb;
+            this.dataSymbolRefs = dataSymbolRefs;
         }
 
         alias visit = super.visit;
@@ -858,7 +941,7 @@ extern (C++) void Type_toDt(Type t, DtBuilder dtb)
         {
             //printf("Type.toDt()\n");
             Expression e = t.defaultInit();
-            Expression_toDt(e, dtb);
+            Expression_toDt(e, dtb, null);
         }
 
         override void visit(TypeVector t)
@@ -874,11 +957,11 @@ extern (C++) void Type_toDt(Type t, DtBuilder dtb)
 
         override void visit(TypeStruct t)
         {
-            StructDeclaration_toDt(t.sym, dtb);
+            StructDeclaration_toDt(t.sym, dtb, dataSymbolRefs);
         }
     }
 
-    scope v = new TypeToDt(dtb);
+    scope v = new TypeToDt(dtb, dataSymbolRefs);
     t.accept(v);
 }
 
@@ -915,7 +998,7 @@ private void toDtElem(TypeSArray tsa, DtBuilder dtb, Expression e)
         }
 
         scope dtb2 = new DtBuilder();
-        Expression_toDt(e, dtb2);
+        Expression_toDt(e, dtb2, null);
         dt_t* dt2 = dtb2.finish();
         dtb.repeat(dt2, len);
     }
@@ -943,7 +1026,7 @@ extern (C++) void ClassReferenceExp_toInstanceDt(ClassReferenceExp ce, DtBuilder
     size_t firstFieldIndex = 0;
     for (ClassDeclaration c = cd.baseClass; c; c = c.baseClass)
         firstFieldIndex += c.fields.dim;
-    membersToDt(cd, dtb, ce.value.elements, firstFieldIndex, cd);
+    membersToDt(cd, dtb, null, ce.value.elements, firstFieldIndex, cd);
 }
 
 /****************************************************
@@ -951,6 +1034,7 @@ extern (C++) void ClassReferenceExp_toInstanceDt(ClassReferenceExp ce, DtBuilder
 extern (C++) class TypeInfoDtVisitor : Visitor
 {
     DtBuilder dtb;
+    Array!(DataSymbolRef)* dataSymbolRefs;
 
     /*
      * Used in TypeInfo*.toDt to verify the runtime TypeInfo sizes
@@ -969,9 +1053,10 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         }
     }
 
-    this(DtBuilder dtb)
+    this(DtBuilder dtb, Array!(DataSymbolRef)* dataSymbolRefs)
     {
         this.dtb = dtb;
+        this.dataSymbolRefs = dataSymbolRefs;
     }
 
     alias visit = super.visit;
@@ -981,7 +1066,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoDeclaration.toDt() %s\n", toChars());
         verifyStructSize(Type.dtypeinfo, 2 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.dtypeinfo), 0);        // vtbl for TypeInfo
+        dtxoffVtbl(dtb, Type.dtypeinfo, dataSymbolRefs); // vtbl for TypeInfo
         dtb.size(0);                                     // monitor
     }
 
@@ -990,12 +1075,12 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoConstDeclaration.toDt() %s\n", toChars());
         verifyStructSize(Type.typeinfoconst, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfoconst), 0);    // vtbl for TypeInfo_Const
+        dtxoffVtbl(dtb, Type.typeinfoconst, dataSymbolRefs); // vtbl for TypeInfo_Const
         dtb.size(0);                                     // monitor
         Type tm = d.tinfo.mutableOf();
         tm = tm.merge();
         genTypeInfo(tm, null);
-        dtb.xoff(toSymbol(tm.vtinfo), 0);
+        dtxoffDsymbol(dtb, tm.vtinfo, 0, dataSymbolRefs);
     }
 
     override void visit(TypeInfoInvariantDeclaration d)
@@ -1003,12 +1088,12 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoInvariantDeclaration.toDt() %s\n", toChars());
         verifyStructSize(Type.typeinfoinvariant, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfoinvariant), 0);    // vtbl for TypeInfo_Invariant
+        dtxoffVtbl(dtb, Type.typeinfoinvariant, dataSymbolRefs); // vtbl for TypeInfo_Invariant
         dtb.size(0);                                         // monitor
         Type tm = d.tinfo.mutableOf();
         tm = tm.merge();
         genTypeInfo(tm, null);
-        dtb.xoff(toSymbol(tm.vtinfo), 0);
+        dtxoffDsymbol(dtb, tm.vtinfo, 0, dataSymbolRefs);
     }
 
     override void visit(TypeInfoSharedDeclaration d)
@@ -1016,12 +1101,12 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoSharedDeclaration.toDt() %s\n", toChars());
         verifyStructSize(Type.typeinfoshared, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfoshared), 0);   // vtbl for TypeInfo_Shared
+        dtxoffVtbl(dtb, Type.typeinfoshared, dataSymbolRefs); // vtbl for TypeInfo_Shared
         dtb.size(0);                                     // monitor
         Type tm = d.tinfo.unSharedOf();
         tm = tm.merge();
         genTypeInfo(tm, null);
-        dtb.xoff(toSymbol(tm.vtinfo), 0);
+        dtxoffDsymbol(dtb, tm.vtinfo, 0, dataSymbolRefs);
     }
 
     override void visit(TypeInfoWildDeclaration d)
@@ -1029,12 +1114,12 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoWildDeclaration.toDt() %s\n", toChars());
         verifyStructSize(Type.typeinfowild, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfowild), 0); // vtbl for TypeInfo_Wild
+        dtxoffVtbl(dtb, Type.typeinfowild, dataSymbolRefs); // vtbl for TypeInfo_Wild
         dtb.size(0);                                 // monitor
         Type tm = d.tinfo.mutableOf();
         tm = tm.merge();
         genTypeInfo(tm, null);
-        dtb.xoff(toSymbol(tm.vtinfo), 0);
+        dtxoffDsymbol(dtb, tm.vtinfo, 0, dataSymbolRefs);
     }
 
     override void visit(TypeInfoEnumDeclaration d)
@@ -1042,7 +1127,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoEnumDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfoenum, 7 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfoenum), 0); // vtbl for TypeInfo_Enum
+        dtxoffVtbl(dtb, Type.typeinfoenum, dataSymbolRefs); // vtbl for TypeInfo_Enum
         dtb.size(0);                        // monitor
 
         assert(d.tinfo.ty == Tenum);
@@ -1060,7 +1145,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         if (sd.memtype)
         {
             genTypeInfo(sd.memtype, null);
-            dtb.xoff(toSymbol(sd.memtype.vtinfo), 0);
+            dtxoffDsymbol(dtb, sd.memtype.vtinfo, 0, dataSymbolRefs);
         }
         else
             dtb.size(0);
@@ -1081,7 +1166,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         else
         {
             dtb.size(sd.type.size());      // init.length
-            dtb.xoff(toInitializer(sd), 0);    // init.ptr
+            dtxoffInitializer(dtb, sd, 0, dataSymbolRefs);// init.ptr
         }
 
         // Put out name[] immediately following TypeInfo_Enum
@@ -1093,7 +1178,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoPointerDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfopointer, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfopointer), 0);  // vtbl for TypeInfo_Pointer
+        dtxoffVtbl(dtb, Type.typeinfopointer, dataSymbolRefs); // vtbl for TypeInfo_Pointer
         dtb.size(0);                                     // monitor
 
         assert(d.tinfo.ty == Tpointer);
@@ -1101,7 +1186,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         TypePointer tc = cast(TypePointer)d.tinfo;
 
         genTypeInfo(tc.next, null);
-        dtb.xoff(toSymbol(tc.next.vtinfo), 0); // TypeInfo for type being pointed to
+        dtxoffDsymbol(dtb, tc.next.vtinfo, 0, dataSymbolRefs); // TypeInfo for type being pointed to
     }
 
     override void visit(TypeInfoArrayDeclaration d)
@@ -1109,7 +1194,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoArrayDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfoarray, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfoarray), 0);    // vtbl for TypeInfo_Array
+        dtxoffVtbl(dtb, Type.typeinfoarray, dataSymbolRefs); // vtbl for TypeInfo_Array
         dtb.size(0);                                     // monitor
 
         assert(d.tinfo.ty == Tarray);
@@ -1117,7 +1202,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         TypeDArray tc = cast(TypeDArray)d.tinfo;
 
         genTypeInfo(tc.next, null);
-        dtb.xoff(toSymbol(tc.next.vtinfo), 0); // TypeInfo for array of type
+        dtxoffDsymbol(dtb, tc.next.vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
     }
 
     override void visit(TypeInfoStaticArrayDeclaration d)
@@ -1125,7 +1210,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoStaticArrayDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfostaticarray, 4 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfostaticarray), 0);  // vtbl for TypeInfo_StaticArray
+        dtxoffVtbl(dtb, Type.typeinfostaticarray, dataSymbolRefs); // vtbl for TypeInfo_StaticArray
         dtb.size(0);                                         // monitor
 
         assert(d.tinfo.ty == Tsarray);
@@ -1133,7 +1218,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         TypeSArray tc = cast(TypeSArray)d.tinfo;
 
         genTypeInfo(tc.next, null);
-        dtb.xoff(toSymbol(tc.next.vtinfo), 0);   // TypeInfo for array of type
+        dtxoffDsymbol(dtb, tc.next.vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
 
         dtb.size(tc.dim.toInteger());          // length
     }
@@ -1143,7 +1228,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoVectorDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfovector, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfovector), 0);   // vtbl for TypeInfo_Vector
+        dtxoffVtbl(dtb, Type.typeinfovector, dataSymbolRefs); // vtbl for TypeInfo_Vector
         dtb.size(0);                                     // monitor
 
         assert(d.tinfo.ty == Tvector);
@@ -1151,7 +1236,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         TypeVector tc = cast(TypeVector)d.tinfo;
 
         genTypeInfo(tc.basetype, null);
-        dtb.xoff(toSymbol(tc.basetype.vtinfo), 0); // TypeInfo for equivalent static array
+        dtxoffDsymbol(dtb, tc.basetype.vtinfo, 0, dataSymbolRefs); // TypeInfo for equivalent static array
     }
 
     override void visit(TypeInfoAssociativeArrayDeclaration d)
@@ -1159,7 +1244,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoAssociativeArrayDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfoassociativearray, 4 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfoassociativearray), 0); // vtbl for TypeInfo_AssociativeArray
+        dtxoffVtbl(dtb, Type.typeinfoassociativearray, dataSymbolRefs); // vtbl for TypeInfo_AssociativeArray
         dtb.size(0);                        // monitor
 
         assert(d.tinfo.ty == Taarray);
@@ -1167,10 +1252,10 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         TypeAArray tc = cast(TypeAArray)d.tinfo;
 
         genTypeInfo(tc.next, null);
-        dtb.xoff(toSymbol(tc.next.vtinfo), 0);   // TypeInfo for array of type
+        dtxoffDsymbol(dtb, tc.next.vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
 
         genTypeInfo(tc.index, null);
-        dtb.xoff(toSymbol(tc.index.vtinfo), 0);  // TypeInfo for array of type
+        dtxoffDsymbol(dtb, tc.index.vtinfo, 0, dataSymbolRefs); // TypeInfo for array of type
     }
 
     override void visit(TypeInfoFunctionDeclaration d)
@@ -1178,7 +1263,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoFunctionDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfofunction, 5 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfofunction), 0); // vtbl for TypeInfo_Function
+        dtxoffVtbl(dtb, Type.typeinfofunction, dataSymbolRefs); // vtbl for TypeInfo_Function
         dtb.size(0);                                     // monitor
 
         assert(d.tinfo.ty == Tfunction);
@@ -1186,7 +1271,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         TypeFunction tc = cast(TypeFunction)d.tinfo;
 
         genTypeInfo(tc.next, null);
-        dtb.xoff(toSymbol(tc.next.vtinfo), 0); // TypeInfo for function return value
+        dtxoffDsymbol(dtb, tc.next.vtinfo, 0, dataSymbolRefs); // TypeInfo for function return value
 
         const(char)* name = d.tinfo.deco;
         assert(name);
@@ -1203,7 +1288,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoDelegateDeclaration.toDt()\n");
         verifyStructSize(Type.typeinfodelegate, 5 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfodelegate), 0); // vtbl for TypeInfo_Delegate
+        dtxoffVtbl(dtb, Type.typeinfodelegate, dataSymbolRefs); // vtbl for TypeInfo_Delegate
         dtb.size(0);                                     // monitor
 
         assert(d.tinfo.ty == Tdelegate);
@@ -1211,7 +1296,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         TypeDelegate tc = cast(TypeDelegate)d.tinfo;
 
         genTypeInfo(tc.next.nextOf(), null);
-        dtb.xoff(toSymbol(tc.next.nextOf().vtinfo), 0); // TypeInfo for delegate return value
+        dtxoffDsymbol(dtb, tc.next.nextOf().vtinfo, 0, dataSymbolRefs); // TypeInfo for delegate return value
 
         const(char)* name = d.tinfo.deco;
         assert(name);
@@ -1231,7 +1316,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         else
             verifyStructSize(Type.typeinfostruct, 15 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfostruct), 0); // vtbl for TypeInfo_Struct
+        dtxoffVtbl(dtb, Type.typeinfostruct, dataSymbolRefs); // vtbl for TypeInfo_Struct
         dtb.size(0);                        // monitor
 
         assert(d.tinfo.ty == Tstruct);
@@ -1294,7 +1379,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         if (sd.zeroInit)
             dtb.size(0);                     // null for 0 initialization
         else
-            dtb.xoff(toInitializer(sd), 0);    // init.ptr
+            dtxoffInitializer(dtb, sd, 0, dataSymbolRefs); // init.ptr
 
         if (FuncDeclaration fd = sd.xhash)
         {
@@ -1370,7 +1455,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
                 if (t)
                 {
                     genTypeInfo(t, null);
-                    dtb.xoff(toSymbol(t.vtinfo), 0);
+                    dtxoffDsymbol(dtb, t.vtinfo, 0, dataSymbolRefs);
                 }
                 else
                     dtb.size(0);
@@ -1382,7 +1467,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         // xgetRTInfo
         if (sd.getRTInfo)
         {
-            Expression_toDt(sd.getRTInfo, dtb);
+            Expression_toDt(sd.getRTInfo, dtb, dataSymbolRefs);
         }
         else if (m_flags & StructFlags.hasPointers)
             dtb.size(1);
@@ -1404,18 +1489,16 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoInterfaceDeclaration.toDt() %s\n", tinfo.toChars());
         verifyStructSize(Type.typeinfointerface, 3 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfointerface), 0);    // vtbl for TypeInfoInterface
+        dtxoffVtbl(dtb, Type.typeinfointerface, dataSymbolRefs); // vtbl for TypeInfoInterface
         dtb.size(0);                                           // monitor
 
         assert(d.tinfo.ty == Tclass);
 
         TypeClass tc = cast(TypeClass)d.tinfo;
-        Symbol *s;
 
         if (!tc.sym.vclassinfo)
             tc.sym.vclassinfo = TypeInfoClassDeclaration.create(tc);
-        s = toSymbol(tc.sym.vclassinfo);
-        dtb.xoff(s, 0);    // ClassInfo for tinfo
+        dtxoffDsymbol(dtb, tc.sym.vclassinfo, 0, dataSymbolRefs); // ClassInfo for tinfo
     }
 
     override void visit(TypeInfoTupleDeclaration d)
@@ -1423,7 +1506,7 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         //printf("TypeInfoTupleDeclaration.toDt() %s\n", tinfo.toChars());
         verifyStructSize(Type.typeinfotypelist, 4 * Target.ptrsize);
 
-        dtb.xoff(toVtblSymbol(Type.typeinfotypelist), 0); // vtbl for TypeInfoInterface
+        dtxoffVtbl(dtb, Type.typeinfotypelist, dataSymbolRefs); // vtbl for TypeInfoInterface
         dtb.size(0);                                       // monitor
 
         assert(d.tinfo.ty == Ttuple);
@@ -1434,21 +1517,21 @@ extern (C++) class TypeInfoDtVisitor : Visitor
         dtb.size(dim);                       // elements.length
 
         scope dtbargs = new DtBuilder();
+        Array!(DataSymbolRef) dataSymbolRefsArgs;
         for (size_t i = 0; i < dim; i++)
         {
             Parameter arg = (*tu.arguments)[i];
 
             genTypeInfo(arg.type, null);
-            Symbol* s = toSymbol(arg.type.vtinfo);
-            dtbargs.xoff(s, 0);
+            dtxoffDsymbol(dtbargs, arg.type.vtinfo, 0, &dataSymbolRefsArgs);
         }
 
-        dtb.dtoff(dtbargs.finish(), 0);                  // elements.ptr
+        dtb.dtoff(dtbargs.finish(), 0, &dataSymbolRefsArgs);                  // elements.ptr
     }
 }
 
-extern (C++) void TypeInfo_toDt(DtBuilder dtb, TypeInfoDeclaration d)
+extern (C++) void TypeInfo_toDt(DtBuilder dtb, TypeInfoDeclaration d, Array!(DataSymbolRef)* dataSymbolRefs)
 {
-    scope v = new TypeInfoDtVisitor(dtb);
+    scope v = new TypeInfoDtVisitor(dtb, dataSymbolRefs);
     d.accept(v);
 }

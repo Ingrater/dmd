@@ -18,6 +18,12 @@
 
 struct seg_data;
 
+struct DataSymbolRef
+{
+  unsigned int offsetInDt; // offset of the reference within the generated dt
+  unsigned int referenceOffset; // offset of the reference to the referenced symbol
+};
+
 #if MARS && TARGET_WINDOS
 #define VIRTUAL virtual
 #else
@@ -63,6 +69,8 @@ class Obj
     VIRTUAL seg_data *tlsseg_data();
     static int  fardata(char *name, targ_size_t size, targ_size_t *poffset);
     VIRTUAL void export_symbol(Symbol *s, unsigned argsize);
+    VIRTUAL void export_data_symbol(Symbol *s);
+    VIRTUAL void markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs);
     VIRTUAL void pubdef(int seg, Symbol *s, targ_size_t offset);
     VIRTUAL void pubdefsize(int seg, Symbol *s, targ_size_t offset, targ_size_t symsize);
     VIRTUAL int external_def(const char *);
@@ -173,6 +181,8 @@ class MsCoffObj : public Obj
     virtual seg_data *tlsseg_bss();
     virtual seg_data *tlsseg_data();
     VIRTUAL void export_symbol(Symbol *s, unsigned argsize);
+    VIRTUAL void export_data_symbol(Symbol *s);
+    VIRTUAL void markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs);
     VIRTUAL void pubdef(int seg, Symbol *s, targ_size_t offset);
     VIRTUAL void pubdefsize(int seg, Symbol *s, targ_size_t offset, targ_size_t symsize);
 //    VIRTUAL int external(const char *);

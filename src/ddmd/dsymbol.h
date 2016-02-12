@@ -98,7 +98,6 @@ enum PROTKIND
     PROTpackage,
     PROTprotected,
     PROTpublic,
-    PROTexport,
 };
 
 struct Prot

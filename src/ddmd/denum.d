@@ -26,6 +26,8 @@ import ddmd.init;
 import ddmd.mtype;
 import ddmd.tokens;
 import ddmd.visitor;
+import ddmd.dtemplate;
+import ddmd.aggregate;
 
 /***********************************************************
  */
@@ -46,6 +48,7 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
     Expression minval;
     Expression defaultval;  // default initializer
     bool isdeprecated;
+    bool isexport;
     bool added;
     int inuse;
 
@@ -142,6 +145,8 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
         protection = sc.protection;
         if (sc.stc & STCdeprecated)
             isdeprecated = true;
+        if(sc.stc & STCexport)
+            isexport = true;
         userAttribDecl = sc.userAttribDecl;
 
         semanticRun = PASSsemantic;
@@ -495,6 +500,54 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
     override inout(EnumDeclaration) isEnumDeclaration() inout
     {
         return this;
+    }
+
+    override bool isExport()
+    {
+        if (isexport) // if directly exported, even if private
+            return true;
+        if (protection.kind <= PROTprivate) // not accessible, no need to check parent
+            return false;
+        // check if any of the parents is a class/struct and if they are exported
+        Dsymbol realParent = parent;
+        while (true)
+        {
+            if (TemplateMixin templateMixin = realParent.isTemplateMixin())
+            {
+                realParent = templateMixin.parent;
+            }
+            else if (TemplateInstance instance = realParent.isTemplateInstance())
+            {
+                realParent = instance.parent;
+            }
+            else
+            {
+                break;
+            }
+        }
+        if (AggregateDeclaration c = realParent.isAggregateDeclaration())
+        {
+            return c.isExport();
+        }
+        return false;
+    }
+
+    override bool isImportedSymbol()
+    {
+        if (!isExport())
+            return false;
+        Dsymbol curParent = parent;
+        if (parent is null)
+            return false;
+        Module _module = curParent.isModule();
+        while (_module is null)
+        {
+            curParent = curParent.parent;
+            if (curParent is null)
+                return false;
+            _module = curParent.isModule();
+        }
+        return !_module.isRoot();
     }
 
     Symbol* sinit;

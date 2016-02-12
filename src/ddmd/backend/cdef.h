@@ -584,7 +584,9 @@ enum
 typedef unsigned        tym_t;          // data type big enough for type masks
 typedef int             SYMIDX;         // symbol table index
 
+#ifndef __DMC__
 #define _chkstack()     (void)0
+#endif
 
 // Don't need these anymore
 #define far

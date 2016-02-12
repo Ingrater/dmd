@@ -70,7 +70,6 @@ enum PROTKIND : int
     PROTpackage,
     PROTprotected,
     PROTpublic,
-    PROTexport,
 }
 
 alias PROTundefined = PROTKIND.PROTundefined;
@@ -79,7 +78,6 @@ alias PROTprivate = PROTKIND.PROTprivate;
 alias PROTpackage = PROTKIND.PROTpackage;
 alias PROTprotected = PROTKIND.PROTprotected;
 alias PROTpublic = PROTKIND.PROTpublic;
-alias PROTexport = PROTKIND.PROTexport;
 
 struct Prot
 {
