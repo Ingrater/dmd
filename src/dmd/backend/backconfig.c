@@ -51,7 +51,9 @@ void out_config_init(
         bool alwaysframe,       // always create standard function frame
         bool stackstomp,        // add stack stomping code
         unsigned char avx,      // use AVX instruction set (0, 1, 2)
-        bool betterC            // implement "Better C"
+        bool betterC,           // implement "Better C"
+        bool dll,               // build a dll
+        bool useDll             // the generated code uses code from other d-dlls
         )
 {
 #if MARS
@@ -91,6 +93,13 @@ void out_config_init(
 
     if (exe)
         config.wflags |= WFexe;         // EXE file only optimizations
+
+    if (dll)
+        config.wflags |= WFdll;
+
+    if (useDll)
+        config.wflags |= WFuseDll;
+
     config.flags4 |= CFG4underscore;
 #endif
 #if TARGET_LINUX

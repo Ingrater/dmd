@@ -2176,16 +2176,9 @@ public:
         }
         if (e.e1.op == TOKvar)
         {
-            Declaration decl = (cast(VarExp)e.e1).var;
-
-            // We cannot take the address of an imported symbol at compile time
-            if (decl.isImportedSymbol()) {
-                e.error("cannot take address of imported symbol `%s` at compile time", decl.toChars());
-                result = CTFEExp.cantexp;
-                return;
-            }
-
-            if (decl.isDataseg()) {
+            auto varExp = cast(VarExp)e.e1;
+            if(varExp.var.isDataseg() || varExp.var.isFuncDeclaration())
+            {
                 // Normally this is already done by optimize()
                 // Do it here in case optimize(WANTvalue) wasn't run before CTFE
                 result = new SymOffExp(e.loc, (cast(VarExp)e.e1).var, 0);

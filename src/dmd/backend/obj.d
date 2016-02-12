@@ -24,6 +24,12 @@ import dmd.backend.outbuf;
 
 extern (C++):
 
+struct DataSymbolRef
+{
+  uint offsetInDt; // offset of the reference within the generated dt
+  uint referenceOffset; // offset of the reference to the referenced symbol
+};
+
 version (Windows)
 {
     version (SCPP)
@@ -88,6 +94,8 @@ version (OMF)
         seg_data *tlsseg_data();
         int  fardata(char *name, targ_size_t size, targ_size_t *poffset);
         void export_symbol(Symbol *s, uint argsize);
+        void export_data_symbol(Symbol *s);
+        void markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs);
         void pubdef(int seg, Symbol *s, targ_size_t offset);
         void pubdefsize(int seg, Symbol *s, targ_size_t offset, targ_size_t symsize);
         int external_def(const(char)* );
@@ -164,6 +172,8 @@ else version (OMFandMSCOFF)
         seg_data *tlsseg_data();
         static int  fardata(char *name, targ_size_t size, targ_size_t *poffset);
         void export_symbol(Symbol *s, uint argsize);
+        void export_data_symbol(Symbol *s);
+        void markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs);
         void pubdef(int seg, Symbol *s, targ_size_t offset);
         void pubdefsize(int seg, Symbol *s, targ_size_t offset, targ_size_t symsize);
         int external_def(const(char)* );
@@ -239,6 +249,8 @@ else version (OMFandMSCOFF)
         override seg_data *tlsseg_bss();
         override seg_data *tlsseg_data();
         override void export_symbol(Symbol *s, uint argsize);
+        override void export_data_symbol(Symbol *s);
+        override void markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs);
         override void pubdef(int seg, Symbol *s, targ_size_t offset);
         override void pubdefsize(int seg, Symbol *s, targ_size_t offset, targ_size_t symsize);
     //    int external(const(char)* );

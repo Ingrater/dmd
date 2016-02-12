@@ -11,10 +11,12 @@
 module dmd.backend.dt;
 
 // Online documentation: https://dlang.org/phobos/dmd_backend_dt.html
+import dmd.backend.obj;
 
 import dmd.backend.cc;
 import dmd.backend.ty;
 import dmd.backend.type;
+import dmd.root.array;
 
 //struct Symbol;
 //alias uint tym_t;
@@ -67,7 +69,7 @@ else
     void xoff(Symbol* s, uint offset, tym_t ty);
     dt_t* xoffpatch(Symbol* s, uint offset, tym_t ty);
     void xoff(Symbol* s, uint offset);
-    Symbol* dtoff(dt_t* dt, uint offset);
+    Symbol* dtoff(dt_t* dt, uint offset, Array!(DataSymbolRef)* dataSymbolRefs = null);
     void coff(uint offset);
     void cat(dt_t* dt);
     void cat(DtBuilder dtb);

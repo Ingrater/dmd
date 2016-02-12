@@ -1099,14 +1099,16 @@ extern (C++) class FuncDeclaration : Declaration
 
     override final bool isExport()
     {
-        return protection.kind == PROTexport;
+        if (storage_class & STCexport) // if directly exported, even if private
+            return true;
+        if (protection.kind <= PROTprivate) // not accessible, no need to check parents
+            return false;
+        return isSymbolExportDueToParent(this);
     }
 
     override final bool isImportedSymbol()
     {
-        //printf("isImportedSymbol()\n");
-        //printf("protection = %d\n", protection);
-        return (protection.kind == PROTexport) && !fbody;
+        return isImportedSymbolDefault(this);
     }
 
     override final bool isCodeseg()
@@ -1590,14 +1592,14 @@ extern (C++) class FuncDeclaration : Declaration
     {
         AggregateDeclaration ad = isThis();
         ClassDeclaration cd = ad ? ad.isClassDeclaration() : null;
-        return (ad && !(cd && cd.isCPPclass()) && global.params.useInvariants && (protection.kind == PROTprotected || protection.kind == PROTpublic || protection.kind == PROTexport) && !naked);
+        return (ad && !(cd && cd.isCPPclass()) && global.params.useInvariants && (protection.kind == PROTprotected || protection.kind == PROTpublic) && !naked);
     }
 
     bool addPostInvariant()
     {
         AggregateDeclaration ad = isThis();
         ClassDeclaration cd = ad ? ad.isClassDeclaration() : null;
-        return (ad && !(cd && cd.isCPPclass()) && ad.inv && global.params.useInvariants && (protection.kind == PROTprotected || protection.kind == PROTpublic || protection.kind == PROTexport) && !naked);
+        return (ad && !(cd && cd.isCPPclass()) && ad.inv && global.params.useInvariants && (protection.kind == PROTprotected || protection.kind == PROTpublic) && !naked);
     }
 
     override const(char)* kind() const

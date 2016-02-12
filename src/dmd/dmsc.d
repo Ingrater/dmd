@@ -58,7 +58,9 @@ void out_config_init(
         bool alwaysframe,       // always create standard function frame
         bool stackstomp,        // add stack stomping code
         ubyte avx,              // use AVX instruction set (0, 1, 2)
-        bool betterC            // implement "Better C"
+        bool betterC,           // implement "Better C"
+        bool dll,               // build a dll
+        bool useDll             // the generated code uses code from other d-dlls
         );
 
 void out_config_debug(
@@ -117,7 +119,9 @@ void backend_init()
         params.alwaysframe,
         params.stackstomp,
         params.cpu >= CPU.avx2 ? 2 : params.cpu >= CPU.avx ? 1 : 0,
-        params.betterC
+        params.betterC,
+        params.dll,
+        params.useDll
     );
 
     debug
