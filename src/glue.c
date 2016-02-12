@@ -487,6 +487,15 @@ void genObjFile(Module *m, bool multiobj)
     if (!global.params.betterC)
         genhelpers(m);
 
+    if (m->massert && m->isRoot())
+      objmod->export_symbol(m->massert, 0);
+
+    if (m->marray && m->isRoot())
+      objmod->export_symbol(m->marray, 0);
+
+    if (m->munittest && m->isRoot())
+      objmod->export_symbol(m->munittest, 0);
+
     objmod->termfile();
 }
 
@@ -931,7 +940,12 @@ void FuncDeclaration_toObjFile(FuncDeclaration *fd, bool multiobj)
 #if TARGET_WINDOS
             if (global.params.mscoff)
             {
-                objmod->includelib("LIBCMT");
+                if (global.params.useDll)
+                {
+                    objmod->includelib("msvcrt");
+                }
+                else
+                    objmod->includelib("LIBCMT");
                 objmod->includelib("OLDNAMES");
             }
             else
@@ -948,7 +962,10 @@ void FuncDeclaration_toObjFile(FuncDeclaration *fd, bool multiobj)
             if (global.params.mscoff)
             {
                 objmod->includelib("uuid");
-                objmod->includelib("LIBCMT");
+                if (global.params.useDll)
+                    objmod->includelib("msvcrt");
+                else
+                    objmod->includelib("LIBCMT");
                 objmod->includelib("OLDNAMES");
                 objmod->ehsections();   // initialize exception handling sections
             }
@@ -966,7 +983,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration *fd, bool multiobj)
             if (global.params.mscoff)
             {
                 objmod->includelib("uuid");
-                objmod->includelib("LIBCMT");
+                objmod->includelib("msvcrt");
                 objmod->includelib("OLDNAMES");
                 objmod->ehsections();   // initialize exception handling sections
             }

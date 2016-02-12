@@ -786,8 +786,8 @@ public:
             static __gshared const(char)* code_ArrayEq = "bool _ArrayEq(T1, T2)(T1[] a, T2[] b) {\n if (a.length != b.length) return false;\n foreach (size_t i; 0 .. a.length) { if (a[i] != b[i]) return false; }\n return true; }\n";
             static __gshared const(char)* code_ArrayPostblit = "void _ArrayPostblit(T)(T[] a) { foreach (ref T e; a) e.__xpostblit(); }\n";
             static __gshared const(char)* code_ArrayDtor = "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
-            static __gshared const(char)* code_xopEquals = "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
-            static __gshared const(char)* code_xopCmp = "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
+            static __gshared const(char)* code_xopEquals = "export bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
+            static __gshared const(char)* code_xopCmp = "export bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
             Identifier arreq = Id._ArrayEq;
             Identifier xopeq = Identifier.idPool("_xopEquals");
             Identifier xopcmp = Identifier.idPool("_xopCmp");

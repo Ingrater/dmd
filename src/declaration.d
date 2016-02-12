@@ -43,6 +43,9 @@ import ddmd.statement;
 import ddmd.target;
 import ddmd.tokens;
 import ddmd.visitor;
+import ddmd.dmodule;
+
+extern(C++) bool builtinTypeInfo(Type t);
 
 /************************************
  * Check to see the aggregate type is nested and its context pointer is
@@ -1958,16 +1961,55 @@ public:
         return isField();
     }
 
-    override final bool isExport()
+    override bool isExport()
     {
-        return protection.kind == PROTexport;
+        // if the symbol does not go into the data segment we can't export it
+        if (!isDataseg())
+            return false;
+        // if the symbol is thread local we can't export it either, as cross dll thread local doesn't work.
+        if (isThreadlocal())
+            return false;
+        if (protection.kind == PROTexport) // if directly exported
+            return true;
+        if (protection.kind <= PROTprivate) // not accessible, no need to export
+            return false;
+        // check if any of the parents is a class/struct and if they are exported
+        Dsymbol realParent = parent;
+        while (true)
+        {
+            TemplateMixin templateMixin = realParent.isTemplateMixin();
+            if(templateMixin !is null)
+            {
+                realParent = templateMixin.parent;
+            }
+            else
+            {
+                break;
+            }
+        }
+        if (AggregateDeclaration c = realParent.isAggregateDeclaration())
+        {
+            return c.isExport();
+        }
+        return false;
     }
 
-    override final bool isImportedSymbol()
+    override bool isImportedSymbol()
     {
-        if (protection.kind == PROTexport && !_init && (storage_class & STCstatic || parent.isModule()))
-            return true;
-        return false;
+        if (!isExport())
+            return false;
+        Dsymbol curParent = parent;
+        if (parent is null)
+            return false;
+        Module _module = curParent.isModule();
+        while (_module is null)
+        {
+            curParent = curParent.parent;
+            if (curParent is null)
+                return false;
+            _module = curParent.isModule();
+        }
+        return !_module.isRoot();
     }
 
     /*******************************
@@ -2394,6 +2436,52 @@ public:
         buf.writestring(tinfo.toChars());
         buf.writeByte(')');
         return buf.extractString();
+    }
+
+    override final bool isExport()
+    {
+        // special handling for classes because they are considered builtin for whatever reason
+        if (tinfo.ty == Tclass)
+        {
+            Dsymbol dsym = tinfo.toDsymbol(null);
+            if (dsym)
+                return dsym.isExport();
+        }
+        // For builtin type infos forward to the actual implementation.
+        if (builtinTypeInfo(tinfo))
+            return type.toDsymbol(null).isExport();
+        // find the end of the type chain
+        Type baseType = tinfo;
+        for (Type nextType = baseType.nextOf(); nextType !is null; nextType = baseType.nextOf())
+        {
+          baseType = nextType;
+        }
+        // if we get a symbol its user defined and we can check if the user defined exports or not
+        // if we don't get a symbol is a builtin type and we always export
+        Dsymbol sym = baseType.toDsymbol(null);
+        return (sym !is null) ? sym.isExport() : true;
+    }
+
+    override final bool isImportedSymbol()
+    {
+        // special handling for classes because they are considered builtin for whatever reason
+        if (tinfo.ty == Tclass)
+        {
+            Dsymbol dsym = tinfo.toDsymbol(null);
+            if (dsym)
+                return dsym.isImportedSymbol();
+        }
+        // For builtin type infos forward to the actual implementation.
+        if (builtinTypeInfo(tinfo))
+            return type.toDsymbol(null).isImportedSymbol();
+        // if we don't have a parent the type info has been instanciated during
+        // a genObj phase. That means its definitly local.
+        if (parent is null)
+            return false;
+        Module m = parent.isModule();
+        assert(m); // parent should always be a module
+        // if the module that instanciated the type info is not a root module we need to import the type info.
+        return !m.isRoot() && this.isExport();
     }
 
     override final TypeInfoDeclaration isTypeInfoDeclaration()

@@ -182,6 +182,7 @@ Usage:
   -release       compile release version
   -run srcfile args...   run resulting program, passing args
   -shared        generate shared library (DLL)
+  -useShared     enable the use of D shared libraries in the generated executable
   -transition=id show additional info about language change identified by 'id'
   -transition=?  list all language changes
   -unittest      compile in unit tests
@@ -216,7 +217,7 @@ extern (C++) void genCmain(Scope* sc)
     /* The D code to be generated is provided as D source code in the form of a string.
      * Note that Solaris, for unknown reasons, requires both a main() and an _main()
      */
-    static __gshared const(char)* cmaincode =
+    static __gshared const(char)* cmaincodeGeneric =
     q{
         extern(C)
         {
@@ -229,8 +230,33 @@ extern (C++) void genCmain(Scope* sc)
             version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }
         }
     };
+    static if (TARGET_WINDOS)
+    {
+        static __gshared const(char)* cmaincodeWin = 
+        q{ 
+            extern(C) 
+            {
+                int _d_run_main(int argc, char **argv, void* mainFunc);
+                int _Dmain(char[][] args);
+                void _d_dll_fixup(void*);
+                int main(int argc, char **argv) 
+                {        
+                    _d_dll_fixup(null);
+                    return _d_run_main(argc, argv, &_Dmain); 
+                }
+            }
+        };
+    }
     Identifier id = Id.entrypoint;
     auto m = new Module("__entrypoint.d", id, 0, 0);
+    static if (TARGET_WINDOS)
+    {
+        const(char)* cmaincode = global.params.betterC ? cmaincodeGeneric : cmaincodeWin;
+    }
+    else
+    {
+        const(char)* cmaincode = cmaincodeGeneric;
+    }
     scope Parser p = new Parser(m, cmaincode, strlen(cast(const(char)*)cmaincode), 0);
     p.scanloc = Loc();
     p.nextToken();
@@ -492,6 +518,8 @@ extern (C++) int tryMain(size_t argc, const(char)** argv)
             }
             else if (strcmp(p + 1, "shared") == 0)
                 global.params.dll = true;
+            else if (strcmp(p + 1, "useShared") == 0)
+                global.params.useDll = true;
             else if (strcmp(p + 1, "dylib") == 0)
             {
                 static if (TARGET_OSX)
@@ -1073,6 +1101,15 @@ Language changes listed by -transition=id:
         // Set the real default value
         global.params.useArrayBounds = global.params.release ? BOUNDSCHECKsafeonly : BOUNDSCHECKon;
     }
+    // -shared implies -useShared
+    if (global.params.dll)
+        global.params.useDll = true;
+    static if (TARGET_WINDOS)
+    {
+        // full dll support is currently only implemented when targeting the microsoft linker
+        if (global.params.useDll && !global.params.mscoff)
+            global.params.useDll = false;
+    }
     if (global.params.release)
     {
         global.params.useInvariants = false;
@@ -1137,7 +1174,10 @@ Language changes listed by -transition=id:
             VersionCondition.addPredefinedGlobalIdent("Win64");
             if (!setdefaultlib)
             {
-                global.params.defaultlibname = "phobos64";
+                if (global.params.useDll)
+                    global.params.defaultlibname = "phobos64s";
+                else
+                    global.params.defaultlibname = "phobos64";
                 if (!setdebuglib)
                     global.params.debuglibname = global.params.defaultlibname;
             }
@@ -1157,7 +1197,10 @@ Language changes listed by -transition=id:
             VersionCondition.addPredefinedGlobalIdent("Win32");
             if (!setdefaultlib && global.params.mscoff)
             {
-                global.params.defaultlibname = "phobos32mscoff";
+                if (global.params.useDll)
+                    global.params.defaultlibname = "phobos32mscoffs";
+                else
+                    global.params.defaultlibname = "phobos32mscoff";
                 if (!setdebuglib)
                     global.params.debuglibname = global.params.defaultlibname;
             }

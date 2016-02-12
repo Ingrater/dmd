@@ -320,6 +320,8 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     char *toChars();
+    bool isExport();
+    bool isImportedSymbol();
 
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }

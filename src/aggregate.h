@@ -128,6 +128,7 @@ public:
     bool isNested();
     void makeNested();
     bool isExport();
+    bool isImportedSymbol();
     Dsymbol *searchCtor();
 
     Prot prot();

@@ -25,11 +25,13 @@
 #include        "type.h"
 #include        "dt.h"
 #include        "exh.h"
+#include        "root/array.h"
 
 static char __file__[] = __FILE__;      /* for tassert.h                */
 #include        "tassert.h"
 
 extern void error(const char *filename, unsigned linnum, unsigned charnum, const char *format, ...);
+void except_fillInEHTable(symbol *s, Array<DataSymbolRef> *dataSymbolRefs);
 
 /****************************
  * Generate and output scope table.
@@ -53,9 +55,18 @@ symbol *except_gentables()
         symbol_keep(s);
         symbol_debug(s);
 
+#if TARGET_WINDOS
+        Array<DataSymbolRef> dataSymbolRefs;
+        except_fillInEHTable(s, &dataSymbolRefs);
+#else
         except_fillInEHTable(s);
+#endif
 
         outdata(s);                 // output the scope table
+
+#if TARGET_WINDOS
+        objmod->markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+#endif
 
         objmod->ehtables(funcsym_p,funcsym_p->Ssize,s);
     }
@@ -81,7 +92,7 @@ symbol *except_gentables()
  * }
  */
 
-void except_fillInEHTable(symbol *s)
+void except_fillInEHTable(symbol *s, Array<DataSymbolRef> *dataSymbolRefs)
 {
     unsigned fsize = NPTRSIZE;             // target size of function pointer
     dt_t **pdt = &s->Sdt;
@@ -350,7 +361,22 @@ void except_fillInEHTable(symbol *s)
             {
                 block *bcatch = b->nthSucc(i);
 
-                pdt = dtxoff(pdt,bcatch->Bcatchtype,0,TYnptr);
+                Symbol *catchtype = bcatch->Bcatchtype;
+                #if TARGET_WINDOS
+                if (bcatch->Bcatchimported)
+                {
+                    assert(dataSymbolRefs != NULL);
+                    DataSymbolRef ref;
+                    ref.offsetInDt = sz;
+                    ref.referenceOffset = 0;
+                    dataSymbolRefs->push(ref);
+                    pdt = dtxoff(pdt, catchtype, 0, TYnptr);
+                }
+                else
+                #endif
+                {
+                    pdt = dtxoff(pdt, catchtype, 0, TYnptr);
+                }
 
                 pdt = dtsize_t(pdt,cod3_bpoffset(b->jcatchvar));     // EBP offset
 
@@ -370,3 +396,10 @@ void except_fillInEHTable(symbol *s)
     assert(sz != 0);
 }
 
+void except_gentables(symbol* s)
+{
+    symbol_debug(s);
+    Array<DataSymbolRef> dataSymbolRefs;
+    except_fillInEHTable(s, &dataSymbolRefs);
+    objmod->markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
+}

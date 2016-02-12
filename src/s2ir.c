@@ -50,6 +50,7 @@ Symbol *toSymbol(Type *t);
 unsigned totym(Type *tx);
 Symbol *toSymbol(Dsymbol *s);
 RET retStyle(TypeFunction *tf);
+Symbol *toImport(Dsymbol *ds);
 
 #define elem_setLoc(e,loc)      srcpos_setLoc(&(e)->Esrcpos, loc)
 #define block_setLoc(b,loc)     srcpos_setLoc(&(b)->Bsrcpos, loc)
@@ -730,7 +731,14 @@ public:
 
         //printf("SwitchErrorStatement::toIR()\n");
 
-        elem *efilename = el_ptr(toSymbol(blx->module));
+        elem *efilename = NULL;
+        #if TARGET_WINDOS
+        if (global.params.useDll && !blx->module->isRoot())
+          efilename = el_una(OPind, TYnptr, el_ptr(toImport(blx->module)));
+        #endif
+        if (efilename == NULL)
+          efilename = el_ptr(toSymbol(blx->module));
+
         elem *elinnum = el_long(TYint, s->loc.linnum);
         elem *e = el_bin(OPcall, TYvoid, el_var(getRtlsym(RTLSYM_DSWITCHERR)), el_param(elinnum, efilename));
         block_appendexp(blx->curblock, e);
@@ -1074,6 +1082,27 @@ public:
 #endif
 
             block *bcatch = blx->curblock;
+            /*if (cs->type)
+            {
+                Type *basetype = cs->type->toBasetype();
+                #if TARGET_WINDOS
+                bcatch->Bcatchimported = false;
+                ClassDeclaration* basetypeClass = basetype->isClassHandle();
+                assert(basetypeClass != NULL); // D can only catch classes
+                if (global.params.useDll && basetypeClass->isImportedSymbol())
+                {
+                    bcatch->Bcatchimported = true;
+                    bcatch->Bcatchtype = toImport(basetypeClass);
+                }
+                else
+                {
+                    bcatch->Bcatchtype = toSymbol(basetype);
+                }
+                #else
+                bcatch->Bcatchtype = toSymbol(basetype);
+                #endif
+                
+            }*/
             tryblock->appendSucc(bcatch);
             block_goto(blx, BCjcatch, NULL);
 

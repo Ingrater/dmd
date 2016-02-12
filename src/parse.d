@@ -4645,6 +4645,7 @@ public:
         case TOKunion:
         case TOKclass:
         case TOKinterface:
+        case TOKexport:
         Ldeclaration:
             {
                 Dsymbols* a = parseDeclarations(false, null, null);

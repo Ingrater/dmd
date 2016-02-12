@@ -93,8 +93,7 @@ void nteh_filltables()
 {
 #if MARS
     symbol *s = s_table;
-    symbol_debug(s);
-    except_fillInEHTable(s);
+    except_gentables(s);
 #endif
 }
 
