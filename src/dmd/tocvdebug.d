@@ -76,7 +76,6 @@ uint PROTtoATTR(Prot.Kind prot)
         case Prot.Kind.package_:       attribute = 2;  break;
         case Prot.Kind.protected_:     attribute = 2;  break;
         case Prot.Kind.public_:        attribute = 3;  break;
-        case Prot.Kind.export_:        attribute = 3;  break;
 
         case Prot.Kind.undefined:
         case Prot.Kind.none:

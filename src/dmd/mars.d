@@ -122,7 +122,7 @@ extern (C++) void genCmain(Scope* sc)
     /* The D code to be generated is provided as D source code in the form of a string.
      * Note that Solaris, for unknown reasons, requires both a main() and an _main()
      */
-    immutable cmaincode =
+    immutable cmaincodeGeneric =
     q{
         extern(C)
         {
@@ -135,8 +135,35 @@ extern (C++) void genCmain(Scope* sc)
             version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }
         }
     };
+    static if (TARGET_WINDOS)
+    {
+        // Note: _d_dll_init must be called before _d_run_main because _d_run_main is within the druntime.dll.
+        // But _d_dll_init needs access to the executable local symbols to access the executables sections.
+        immutable cmaincodeWin =
+        q{
+            extern(C)
+            {
+                int _d_run_main(int argc, char **argv, void* mainFunc);
+                int _Dmain(char[][] args);
+                void _d_dll_init(void*);
+                int main(int argc, char **argv)
+                {
+                    _d_dll_init(null);
+                    return _d_run_main(argc, argv, &_Dmain);
+                }
+            }
+        };
+    }
     Identifier id = Id.entrypoint;
     auto m = new Module("__entrypoint.d", id, 0, 0);
+    static if (TARGET_WINDOS)
+    {
+        auto cmaincode = (!global.params.importsDll || global.params.betterC) ? cmaincodeGeneric : cmaincodeWin;
+    }
+    else
+    {
+        auto cmaincode = cmaincodeGeneric;
+    }
     scope p = new Parser!ASTCodegen(m, cmaincode, false);
     p.scanloc = Loc();
     p.nextToken();
@@ -172,6 +199,7 @@ extern (C++) void genCmain(Scope* sc)
 private int tryMain(size_t argc, const(char)** argv)
 {
     Strings files;
+    Strings dllImports;
     Strings libmodules;
     global._init();
     debug
@@ -262,7 +290,7 @@ private int tryMain(size_t argc, const(char)** argv)
     updateRealEnvironment(&environment);
     environment.reset(1); // don't need environment cache any more
 
-    if (parseCommandLine(arguments, argc, global.params, files))
+    if (parseCommandLine(arguments, argc, global.params, files, dllImports))
     {
         Loc loc;
         errorSupplemental(loc, "run 'dmd -man' to open browser on manual");
@@ -367,8 +395,17 @@ private int tryMain(size_t argc, const(char)** argv)
     }
     static if (TARGET_WINDOS)
     {
+        // full dll support is currently only implemented when targeting the microsoft linker
+        if (global.params.importsDll && !global.params.mscoff)
+        {
+            error(Loc(), "importing shared libraries on windows is currently only supported with -m64 and -m32mscoff");
+            fatal();
+        }
+
         if (!global.params.mscrtlib)
-            global.params.mscrtlib = "libcmt";
+        {
+            global.params.mscrtlib = (global.params.importsDll || global.params.dll) ? "msvcrt" : "libcmt";
+        }
     }
     if (global.params.release)
     {
@@ -461,6 +498,7 @@ private int tryMain(size_t argc, const(char)** argv)
     addDefaultVersionIdentifiers();
 
     setDefaultLibrary();
+    addDefaultDllImports(dllImports);
 
     // Initialization
     Type._init();
@@ -622,6 +660,54 @@ private int tryMain(size_t argc, const(char)** argv)
             firstmodule = false;
         }
     }
+
+    // Create dll import module lists
+    Modules dllImportModules;
+    dllImportModules.reserve(dllImports.dim);
+    for(size_t i=0; i < dllImports.dim; i++)
+    {
+        version (Windows)
+        {
+            dllImports[i] = toWinPath(dllImports[i]);
+            const(char)* fixedPath;
+            const(char)* fixedName = lookForSourceFile(&fixedPath, dllImports[i]);
+            if(fixedName !is null)
+                dllImports[i] = fixedName;
+        }
+        const(char)* p = dllImports[i];
+        p = FileName.name(p); // strip path
+        const(char)* ext = FileName.ext(p);
+        const(char)* name;
+        char* newname;
+        if(ext !is null)
+        {
+            if(FileName.equals(ext, global.mars_ext) || FileName.equals(ext, global.hdr_ext))
+            {
+                ext--; // skip onto '.'
+                assert(*ext == '.');
+                newname = cast(char*)mem.xmalloc((ext - p) + 1);
+                memcpy(newname, p, ext - p);
+                newname[ext - p] = 0; // strip extension
+                name = newname;
+                if (name[0] == 0 || strcmp(name, "..") == 0 || strcmp(name, ".") == 0)
+                    goto LinvalidImport;
+            }
+            else
+            {
+                error(Loc(), "unrecognized file extension for import %s", ext);
+                fatal();
+            }
+        }
+        else
+        {
+        LinvalidImport:
+            error(Loc(), "invalid file name for import '%s'", dllImports[i]);
+            fatal();
+        }
+        auto id = Identifier.idPool(name, strlen(name));
+        auto m = new Module(dllImports[i], id, false, false);
+        dllImportModules.push(m);
+    }
     // Read files
     /* Start by "reading" the dummy main.d file
      */
@@ -650,12 +736,20 @@ private int tryMain(size_t argc, const(char)** argv)
         {
             aw.addFile(m.srcfile);
         }
+        foreach(m; dllImportModules)
+        {
+            aw.addFile(m.srcfile);
+        }
         aw.start();
     }
     else
     {
         // Single threaded
         foreach (m; modules)
+        {
+            m.read(Loc());
+        }
+        foreach(m; dllImportModules)
         {
             m.read(Loc());
         }
@@ -702,6 +796,26 @@ private int tryMain(size_t argc, const(char)** argv)
                 global.params.link = false;
         }
     }
+    foreach(size_t i, m; dllImportModules[])
+    {
+        m.importedFrom = Module.rootModule;
+        m.isImportList = true;
+        m.isDllImported = true;
+        m.deleteObjFile();
+        static if (ASYNCREAD)
+        {
+            if (aw.read(i + files.dim))
+            {
+                error(Loc(), "cannot read file %s", m.srcfile.name.toChars());
+                fatal();
+            }
+        }
+        m.parse();
+    }
+    Modules allModules;
+    allModules.reserve(modules.dim + dllImportModules.dim);
+    allModules.append(&modules);
+    allModules.append(&dllImportModules);
     static if (ASYNCREAD)
     {
         AsyncRead.dispose(aw);
@@ -732,7 +846,7 @@ private int tryMain(size_t argc, const(char)** argv)
         fatal();
 
     // load all unconditional imports for better symbol resolving
-    foreach (m; modules)
+    foreach (m; allModules)
     {
         if (global.params.verbose)
             fprintf(global.stdmsg, "importall %s\n", m.toChars());
@@ -744,7 +858,7 @@ private int tryMain(size_t argc, const(char)** argv)
     backend_init();
 
     // Do semantic analysis
-    foreach (m; modules)
+    foreach (m; allModules)
     {
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic  %s\n", m.toChars());
@@ -765,7 +879,7 @@ private int tryMain(size_t argc, const(char)** argv)
     }
 
     // Do pass 2 semantic analysis
-    foreach (m; modules)
+    foreach (m; allModules)
     {
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic2 %s\n", m.toChars());
@@ -1196,6 +1310,25 @@ private void setDefaultLibrary()
         global.params.debuglibname = global.params.defaultlibname;
 }
 
+/**
+ * Add default -import parameters when detecting the use of phobos
+ */
+private void addDefaultDllImports(ref Strings dllImports)
+{
+    static if(TARGET_WINDOS)
+    {
+        const(char)* libname = (global.params.symdebug)
+            ? global.params.debuglibname
+            : global.params.defaultlibname;
+
+        if(stricmp(libname, "phobos64s") == 0 || stricmp(libname, "phobos64s.lib") == 0)
+        {
+            dllImports.push("druntime.d");
+            dllImports.push("phobos.d");
+            global.params.importsDll = true;
+        }
+    }
+}
 
 /**
  * Add default `version` identifier for dmd, and set the
@@ -1396,7 +1529,7 @@ private CPU setTargetCPU(CPU cpu)
  *      true if errors in command line
  */
 
-private bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param params, ref Strings files)
+private bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param params, ref Strings files, ref Strings dllImports)
 {
     bool errors;
 
@@ -1511,6 +1644,25 @@ private bool parseCommandLine(const ref Strings arguments, const size_t argc, re
             }
             else if (arg == "-shared")
                 params.dll = true;
+            else if(startsWith(p + 1, "import"))
+            {
+                static if(TARGET_WINDOS)
+                {
+                    if(arg.length < 8)
+                        goto Lerror;
+                    if (arg[7] == '=')
+                    {
+                        dllImports.push(p + 8);
+                        global.params.importsDll = true;
+                    }
+                    else
+                        goto Lerror;
+                }
+                else
+                {
+                    goto Lerror;
+                }
+            }
             else if (arg == "-dylib")
             {
                 static if (TARGET_OSX)

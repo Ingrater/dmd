@@ -1097,6 +1097,11 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             // Modules need a list of each imported module
             //printf("%s imports %s\n", sc.module.toChars(), mod.toChars());
             sc._module.aimports.push(imp.mod);
+            
+            if(imp.protection.kind == PROTpublic && sc._module.isImportList)
+            {
+                imp.mod.isDllImported = true;
+            }
 
             if (sc.explicitProtection)
                 imp.protection = sc.protection;
@@ -1692,6 +1697,8 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         ed.protection = sc.protection;
         if (sc.stc & STC.deprecated_)
             ed.isdeprecated = true;
+        if(sc.stc & STCexport)
+            ed.isexport = true;
         ed.userAttribDecl = sc.userAttribDecl;
 
         ed.semanticRun = PASSsemantic;

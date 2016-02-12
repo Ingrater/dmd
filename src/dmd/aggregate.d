@@ -34,6 +34,7 @@ import dmd.semantic2;
 import dmd.semantic3;
 import dmd.tokens;
 import dmd.visitor;
+import dmd.dmodule;
 
 enum Sizeok : int
 {
@@ -666,7 +667,17 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
     override final bool isExport()
     {
-        return protection.kind == Prot.Kind.export_;
+        if (storage_class & STCexport) // if directly exported, even if private
+            return true;
+        if (protection.kind <= Prot.Kind.private_) // not accessible, no need to check parent
+            return false;
+        // check if any of the parents is a class/struct and if they are exported
+        return isSymbolExportDueToParent(this);
+    }
+
+    override final bool isImportedSymbol()
+    {
+        return isImportedSymbolDefault(this);
     }
 
     /*******************************************

@@ -79,6 +79,7 @@ public:
     unsigned numlines;  // number of lines in source file
     int isDocFile;      // if it is a documentation input file, not D source
     bool isPackageFile; // if it is a package.d
+    bool isExport;      // If hidden module symbols should be available across shared library boundaries
     int needmoduleinfo;
     /**
        How many unit tests have been seen so far in this module. Makes it so the

@@ -94,12 +94,13 @@ enum PINLINE;
 #define STCscopeinferred 0x2000000000000LL // 'scope' has been inferred and should not be part of mangling
 #define STCfuture        0x4000000000000LL // introducing new base class function
 #define STClocal         0x8000000000000LL // do not forward (see dmd.dsymbol.ForwardingScopeDsymbol).
+#define STCexport        0x10000000000000LL // Make available accross shared library boundaries.
 
 const StorageClass STCStorageClass = (STCauto | STCscope | STCstatic | STCextern | STCconst | STCfinal |
     STCabstract | STCsynchronized | STCdeprecated | STCfuture | STCoverride | STClazy | STCalias |
     STCout | STCin |
     STCmanifest | STCimmutable | STCshared | STCwild | STCnothrow | STCnogc | STCpure | STCref | STCreturn | STCtls |
-    STCgshared | STCproperty | STCsafe | STCtrusted | STCsystem | STCdisable | STClocal);
+    STCgshared | STCproperty | STCsafe | STCtrusted | STCsystem | STCdisable | STClocal | STCexport);
 
 struct Match
 {
@@ -308,6 +309,8 @@ public:
     static TypeInfoDeclaration *create(Type *tinfo);
     Dsymbol *syntaxCopy(Dsymbol *);
     const char *toChars();
+    bool isExport();
+    bool isImportedSymbol();
 
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }

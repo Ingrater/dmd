@@ -12,6 +12,7 @@
 
 module dmd.declaration;
 
+import dmd.dmodule;
 import dmd.aggregate;
 import dmd.arraytypes;
 import dmd.dclass;
@@ -37,6 +38,7 @@ import dmd.target;
 import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
+import dmd.typinf;
 
 /************************************
  * Check to see the aggregate type is nested and its context pointer is
@@ -241,6 +243,84 @@ enum STC : long
     scopeinferred       = (1L << 49),   // 'scope' has been inferred and should not be part of mangling
     future              = (1L << 50),   // introducing new base class function
     local               = (1L << 51),   // do not forward (see dmd.dsymbol.ForwardingScopeDsymbol).
+    export_.............= (1L << 52);   // make avaible accross shared library boundaries
+}
+
+/***********************************************
+* Check if a given symbols needs to be exporte due to its parent.
+*/
+bool isSymbolExportDueToParent(Dsymbol symbol)
+{
+    Dsymbol realParent = symbol.parent;
+    if(realParent is null)
+        return false;
+
+    // Skip template instances as we want to get to the sourrounding aggregate if any.
+    while (true)
+    {
+        TemplateInstance templateInstance = realParent.isTemplateInstance();
+        if(templateInstance !is null)
+        {
+            realParent = templateInstance.parent;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // If the sourrounding declaration is an aggregate see if it is export
+    if (AggregateDeclaration c = realParent.isAggregateDeclaration())
+    {
+        return c.isExport();
+    }
+
+    // Otherwise not export due to parent
+    return false;
+}
+
+bool isImportedSymbolDefault(Dsymbol symbol)
+{
+    // if its not export we don't need to import it
+    if (!symbol.isExport())
+        return false;
+
+    // If there is no parent the symbol is local
+    if (symbol.parent is null)
+        return false;
+
+    // Find the parent module
+    Dsymbol curParent = symbol.parent;
+
+    Module _module = curParent.isModule();
+    while (_module is null)
+    {
+        if (curParent is null)
+            return false;
+
+        // If the symbol belongs to a template instance use the module that caused the template instanciation
+        TemplateInstance templateInstance = curParent.isTemplateInstance();
+
+        if(templateInstance !is null)
+        {
+            // If the template instance is going to generate code, never import on of its symbols
+            if(templateInstance.needsCodegen())
+                return false;
+            if(templateInstance.minst !is null)
+                _module = templateInstance.minst;
+        }
+        else
+            _module = curParent.isModule();
+
+        curParent = curParent.parent;
+    }
+    // if the module is root the symbol is definitly local
+    if(_module.isRoot())
+        return false;
+
+    // In all other cases, import the symbol if the module is marked dllimport
+    return _module.isDllImported;
+}
 
     TYPECTOR = (STC.const_ | STC.immutable_ | STC.shared_ | STC.wild),
     FUNCATTR = (STC.ref_ | STC.nothrow_ | STC.nogc | STC.pure_ | STC.property | STC.safe | STC.trusted | STC.system),
@@ -250,7 +330,7 @@ extern (C++) __gshared const(StorageClass) STCStorageClass =
     (STC.auto_ | STC.scope_ | STC.static_ | STC.extern_ | STC.const_ | STC.final_ | STC.abstract_ | STC.synchronized_ |
      STC.deprecated_ | STC.future | STC.override_ | STC.lazy_ | STC.alias_ | STC.out_ | STC.in_ | STC.manifest |
      STC.immutable_ | STC.shared_ | STC.wild | STC.nothrow_ | STC.nogc | STC.pure_ | STC.ref_ | STC.return_ | STC.tls | STC.gshared |
-     STC.property | STC.safe | STC.trusted | STC.system | STC.disable | STC.local);
+     STC.property | STC.safe | STC.trusted | STC.system | STC.disable | STC.local | STC.export_);
 
 struct Match
 {
@@ -1220,16 +1300,25 @@ extern (C++) class VarDeclaration : Declaration
         return isField();
     }
 
-    override final bool isExport()
+    override bool isExport()
     {
-        return protection.kind == Prot.Kind.export_;
+        // if the symbol does not go into the data segment we can't export it
+        if (!isDataseg())
+            return false;
+        // if the symbol is thread local we can't export it either, as cross dll thread local doesn't work.
+        if (isThreadlocal())
+            return false;
+        if (storage_class & STC.export_) // if directly exported, even if private
+            return true;
+        if (protection.kind <= Prot.Kind.private_) // not accessible, no need to check parents
+            return false;
+        // check if any of the parents is a class/struct and if they are exported
+        return isSymbolExportDueToParent(this);
     }
 
-    override final bool isImportedSymbol()
+    override bool isImportedSymbol()
     {
-        if (protection.kind == Prot.Kind.export_ && !_init && (storage_class & STC.static_ || parent.isModule()))
-            return true;
-        return false;
+        return isImportedSymbolDefault(this);
     }
 
     /*******************************
@@ -1675,6 +1764,63 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         buf.writestring(tinfo.toChars());
         buf.writeByte(')');
         return buf.extractString();
+    }
+
+    override final bool isExport()
+    {
+        // special handling for classes because they are considered builtin for whatever reason
+        if (tinfo.ty == Tclass)
+        {
+            Dsymbol dsym = tinfo.toDsymbol(null);
+            if (dsym)
+                return dsym.isExport();
+        }
+        // For builtin type infos forward to the actual implementation.
+        if (builtinTypeInfo(tinfo))
+            return type.toDsymbol(null).isExport();
+        // The typeinfo might be for const(T)[] but we need T in order to check if T exports or not
+        // Stop following the typechain at enums. Because we wan't the symbol for the enum itself and not for its basetype.
+        Type baseType = tinfo;
+        for (Type nextType = baseType; nextType !is null && nextType.ty != Tenum; nextType = baseType.nextOf())
+        {
+            baseType = nextType;
+        }
+        // if we get a symbol its user defined and we can check if the user made it export or not
+        // if we don't get a symbol is a builtin type and we always export
+        Dsymbol sym = baseType.toDsymbol(null);
+        return (sym !is null) ? sym.isExport() : true;
+    }
+
+    override final bool isImportedSymbol()
+    {
+        // special handling for classes because they are considered builtin for whatever reason
+        if (tinfo.ty == Tclass)
+        {
+            Dsymbol dsym = tinfo.toDsymbol(null);
+            if (dsym)
+                return dsym.isImportedSymbol();
+        }
+        // For builtin type infos forward to the actual implementation.
+        if (builtinTypeInfo(tinfo))
+            return type.toDsymbol(null).isImportedSymbol();
+
+        // if we don't have a parent the type info has been instanciated during
+        // a genObj phase. That means its definitly local.
+        if (parent is null)
+            return false;
+
+        // If its not exported we don't need to import it.
+        if(!isExport())
+            return false;
+
+        Module m = parent.isModule();
+        assert(m); // parent should always be a module
+        // if the module that instanciated the type info is a root module there is no need to import.
+        if(m.isRoot())
+            return false;
+
+        // import in all other cases if module is dllimport
+        return m.isDllImported;
     }
 
     override final inout(TypeInfoDeclaration) isTypeInfoDeclaration() inout

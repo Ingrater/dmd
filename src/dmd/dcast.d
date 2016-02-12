@@ -2033,7 +2033,8 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 auto f = ve.var.isFuncDeclaration();
                 if (f)
                 {
-                    assert(f.isImportedSymbol());
+                    assert(false, "dead code?");
+                    /*assert(f.isImportedSymbol());
                     f = f.overloadExactMatch(tb.nextOf());
                     if (f)
                     {
@@ -2042,7 +2043,7 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                         result = new AddrExp(e.loc, result);
                         result.type = t;
                         return;
-                    }
+                    }*/
                 }
             }
 

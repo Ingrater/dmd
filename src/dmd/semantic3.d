@@ -852,6 +852,29 @@ private extern(C++) final class Semantic3Visitor : Visitor
                         }
                         rs.exp = exp;
                     }
+
+                    if(funcdecl.isExport())
+                    {
+                        // Check if the return type is a voldermort type defined within the function
+                        // and export it if the function itself is export
+                        Dsymbol retTypeSym = f.next.toDsymbol(sc2);
+                        if(retTypeSym !is null && retTypeSym.parent is funcdecl)
+                        {
+                            auto retAggregateDecl = retTypeSym.isAggregateDeclaration();
+                            if(retAggregateDecl !is null)
+                            {
+                                retAggregateDecl.storage_class |= STCexport;
+                            }
+                            else
+                            {
+                                auto retEnum = retTypeSym.isEnumDeclaration();
+                                if(retEnum !is null)
+                                {
+                                    retEnum.isexport = true;
+                                }
+                            }
+                        }
+                    }
                 }
                 if (funcdecl.nrvo_var || funcdecl.returnLabel)
                 {

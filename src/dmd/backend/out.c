@@ -114,8 +114,6 @@ void outdata(symbol *s)
         goto Lret;                      // don't output any data
     }
 #endif
-    if (ty & mTYexport && config.wflags & WFexpdef && s->Sclass != SCstatic)
-        objmod->export_symbol(s,0);        // export data definition
     for (dt_t *dt = dtstart; dt; dt = dt->DTnext)
     {
         //printf("\tdt = %p, dt = %d\n",dt,dt->dt);
@@ -334,6 +332,9 @@ void outdata(symbol *s)
         !(s->Sclass == SCstatic && funcsym_p)) // not local static
         cv_outsym(s);
     searchfixlist(s);
+
+    if (ty & mTYexport && config.wflags & WFexpdef && s->Sclass != SCstatic)
+      objmod->export_data_symbol(s);        // export data definition
 
     /* Go back through list, now that we know its size, and send out    */
     /* the data.                                                        */

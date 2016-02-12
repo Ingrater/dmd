@@ -203,7 +203,7 @@ extern (C++) final class Import : Dsymbol
             load(sc);
             if (mod) // if successfully loaded module
             {
-                if (mod.md && mod.md.isdeprecated)
+                if (mod.md && mod.md.isdeprecated && !sc._module.isImportList)
                 {
                     Expression msg = mod.md.msg;
                     if (StringExp se = msg ? msg.toStringExp() : null)

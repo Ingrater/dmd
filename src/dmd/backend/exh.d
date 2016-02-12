@@ -48,7 +48,6 @@ void  except_mark();
 void  except_release();
 Symbol *except_gensym();
 Symbol *except_gentables();
-void except_fillInEHTable(Symbol *s);
 void  except_reset();
 
 /* pdata.c */

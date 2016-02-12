@@ -27,6 +27,9 @@ import dmd.mtype;
 import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
+import dmd.dtemplate;
+import dmd.aggregate;
+import dmd.dmodule;
 
 /***********************************************************
  */
@@ -47,6 +50,7 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
     Expression minval;
     Expression defaultval;  // default initializer
     bool isdeprecated;
+    bool isexport;
     bool added;
     int inuse;
 
@@ -308,6 +312,21 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
             }
         }
         return memtype;
+    }
+
+    override bool isExport()
+    {
+        if (isexport) // if directly exported, even if private
+            return true;
+        if (protection.kind <= PROTprivate) // not accessible, no need to check parent
+            return false;
+        // check if any of the parents is a class/struct and if they are exported
+        return isSymbolExportDueToParent(this);
+    }
+
+    override bool isImportedSymbol()
+    {
+        return isImportedSymbolDefault(this);
     }
 
     override inout(EnumDeclaration) isEnumDeclaration() inout

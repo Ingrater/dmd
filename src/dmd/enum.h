@@ -45,6 +45,7 @@ public:
     Expression *defaultval;     // default initializer
 
     bool isdeprecated;
+    bool isexport;
     bool added;
     int inuse;
 
@@ -62,6 +63,9 @@ public:
     Type *getMemtype(Loc loc);
 
     EnumDeclaration *isEnumDeclaration() { return this; }
+
+    bool isExport();
+    bool isImportedSymbol();
 
     Symbol *sinit;
     void accept(Visitor *v) { v->visit(this); }

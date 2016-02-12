@@ -64,7 +64,6 @@ private Prot getAccess(AggregateDeclaration ad, Dsymbol smember)
             case Prot.Kind.package_:
             case Prot.Kind.protected_:
             case Prot.Kind.public_:
-            case Prot.Kind.export_:
                 // If access is to be tightened
                 if (Prot.Kind.public_ < access.kind)
                     access = Prot(Prot.Kind.public_);
@@ -488,7 +487,7 @@ extern (C++) bool symbolIsVisible(Module mod, Dsymbol s)
     case Prot.Kind.private_: return s.getAccessModule() == mod;
     case Prot.Kind.package_: return s.getAccessModule() == mod || hasPackageAccess(mod, s);
     case Prot.Kind.protected_: return s.getAccessModule() == mod;
-    case Prot.Kind.public_, Prot.Kind.export_: return true;
+    case Prot.Kind.public_: return true;
     }
 }
 
@@ -519,7 +518,7 @@ extern (C++) bool symbolIsVisible(Scope *sc, Dsymbol s)
     case Prot.Kind.private_: return sc._module == s.getAccessModule();
     case Prot.Kind.package_: return sc._module == s.getAccessModule() || hasPackageAccess(sc._module, s);
     case Prot.Kind.protected_: return hasProtectedAccess(sc, s);
-    case Prot.Kind.public_, Prot.Kind.export_: return true;
+    case Prot.Kind.public_: return true;
     }
 }
 

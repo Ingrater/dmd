@@ -77,7 +77,6 @@ struct Prot
         package_,
         protected_,
         public_,
-        export_,
     }
 
     Kind kind;
@@ -768,7 +767,7 @@ extern (C++) class Dsymbol : RootObject
         return false;
     }
 
-    // is Dsymbol imported?
+    // is Dsymbol imported for the given module?
     bool isImportedSymbol()
     {
         return false;

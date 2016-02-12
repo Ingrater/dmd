@@ -104,7 +104,6 @@ struct Prot
         package_,
         protected_,
         public_,
-        export_,
     };
     Kind kind;
     Package *pkg;
