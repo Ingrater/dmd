@@ -114,12 +114,12 @@ dt_t ** dtxoffDsymbol(dt_t **pdt, Dsymbol *d, unsigned offset, Array<DataSymbolR
 #endif
 }
 
-void offsetDataSymbolRefs(Array<DataSymbolRef>* dataSymbolRefs, unsigned int startElement, unsigned int offset)
+void offsetDataSymbolRefs(Array<DataSymbolRef>* dataSymbolRefs, unsigned int startElement, unsigned int endElement, unsigned int offset)
 {
     if(dataSymbolRefs != NULL)
     {
-        const unsigned int numRefs = dataSymbolRefs->dim;
-        for(unsigned int i=startElement; i < numRefs; i++)
+        assert(endElement <= dataSymbolRefs->dim);
+        for (unsigned int i = startElement; i < endElement; i++)
         {
             (*dataSymbolRefs)[i].offsetInDt += offset;
         }
@@ -172,6 +172,12 @@ dt_t **Initializer_toDt(Initializer *init, dt_t **pdt, Array<DataSymbolRef> *dat
             dts.setDim(ai->dim);
             dts.zero();
 
+            #if TARGET_WINDOS
+            unsigned int dimDataSymbolRefsStart = (dataSymbolRefs) ? dataSymbolRefs->dim : 0;
+            Array<unsigned int> dimDataSymbolRefsEnd;
+            dimDataSymbolRefsEnd.setDim(ai->dim);
+            #endif
+
             unsigned size = tn->size();
 
             unsigned length = 0;
@@ -188,6 +194,9 @@ dt_t **Initializer_toDt(Initializer *init, dt_t **pdt, Array<DataSymbolRef> *dat
                 if (dts[length])
                     error(ai->loc, "duplicate initializations for index %d", length);
                 dts[length] = dt;
+                #if TARGET_WINDOS
+                dimDataSymbolRefsEnd[length] = (dataSymbolRefs) ? dataSymbolRefs->dim : 0;
+                #endif
                 length++;
             }
 
@@ -208,7 +217,13 @@ dt_t **Initializer_toDt(Initializer *init, dt_t **pdt, Array<DataSymbolRef> *dat
             {
                 dt_t *dt = dts[i];
                 if (dt)
+                {
+                    #if TARGET_WINDOS
+                    offsetDataSymbolRefs(dataSymbolRefs, dimDataSymbolRefsStart, dimDataSymbolRefsEnd[i], dt_size(d));
+                    dimDataSymbolRefsStart = dimDataSymbolRefsEnd[i];
+                    #endif
                     pdtend = dtcat(pdtend, dt);
+                }
                 else
                 {
                     if (!dtdefault)
@@ -770,7 +785,7 @@ dt_t **membersToDt(AggregateDeclaration *ad, dt_t **pdt,
         if (!dt)
             continue;
 
-        offsetDataSymbolRefs(dataSymbolRefs, oldDataSymbolRefsDim, dt_size(*pdt));
+        offsetDataSymbolRefs(dataSymbolRefs, oldDataSymbolRefsDim, (dataSymbolRefs) ? dataSymbolRefs->dim : 0, dt_size(*pdt));
         pdt = dtcat(pdt, dt);
         offset = vd->offset + vd->type->size();
     }
@@ -878,7 +893,7 @@ dt_t **membersToDt(AggregateDeclaration *ad, dt_t **pdt,
         else
             Expression_toDt(e, &dt, dataSymbolRefs);    // convert e to an initializer dt
 
-        offsetDataSymbolRefs(dataSymbolRefs, oldDataSymbolRefCount, dt_size(*pdt));
+        offsetDataSymbolRefs(dataSymbolRefs, oldDataSymbolRefCount, (dataSymbolRefs) ? dataSymbolRefs->dim : 0, dt_size(*pdt));
         pdt = dtcat(pdt, dt);
         offset = vd->offset + vd->type->size();
     }
