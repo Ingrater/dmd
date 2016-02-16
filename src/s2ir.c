@@ -1082,27 +1082,6 @@ public:
 #endif
 
             block *bcatch = blx->curblock;
-            /*if (cs->type)
-            {
-                Type *basetype = cs->type->toBasetype();
-                #if TARGET_WINDOS
-                bcatch->Bcatchimported = false;
-                ClassDeclaration* basetypeClass = basetype->isClassHandle();
-                assert(basetypeClass != NULL); // D can only catch classes
-                if (global.params.useDll && basetypeClass->isImportedSymbol())
-                {
-                    bcatch->Bcatchimported = true;
-                    bcatch->Bcatchtype = toImport(basetypeClass);
-                }
-                else
-                {
-                    bcatch->Bcatchtype = toSymbol(basetype);
-                }
-                #else
-                bcatch->Bcatchtype = toSymbol(basetype);
-                #endif
-                
-            }*/
             tryblock->appendSucc(bcatch);
             block_goto(blx, BCjcatch, NULL);
 
@@ -1209,8 +1188,26 @@ public:
                 if (cs->var)
                     cs->var->csym = tryblock->jcatchvar;
                 block *bcatch = blx->curblock;
-                if (cs->type)
-                    bcatch->Bcatchtype = toSymbol(cs->type->toBasetype());
+				if (cs->type)
+				{
+					Type *basetype = cs->type->toBasetype();
+					#if TARGET_WINDOS
+					bcatch->Bcatchimported = false;
+					ClassDeclaration* basetypeClass = basetype->isClassHandle();
+					assert(basetypeClass != NULL); // D can only catch classes
+					if (global.params.useDll && basetypeClass->isImportedSymbol())
+					{
+						bcatch->Bcatchimported = true;
+						bcatch->Bcatchtype = toImport(basetypeClass);
+					}
+					else
+					{
+						bcatch->Bcatchtype = toSymbol(basetype);
+					}
+					#else
+					bcatch->Bcatchtype = toSymbol(basetype);
+					#endif
+				}
                 tryblock->appendSucc(bcatch);
                 block_goto(blx, BCjcatch, NULL);
                 if (cs->handler != NULL)
