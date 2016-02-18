@@ -53,7 +53,7 @@ elem *toElemDtor(Expression *e, IRState *irs);
 unsigned totym(Type *tx);
 Symbol *toSymbol(Dsymbol *s);
 elem *toElem(Expression *e, IRState *irs);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
+dt_t **Expression_toDt(Expression *e, dt_t** dtStart, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
 Symbol *toStringSymbol(const char *str, size_t len, size_t sz);
 Symbol *toStringSymbol(StringExp *se);
 void toObjFile(Dsymbol *ds, bool multiobj);

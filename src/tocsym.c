@@ -51,7 +51,7 @@ void slist_reset();
 Classsym *fake_classsym(Identifier *id);
 type *Type_toCtype(Type *t);
 dt_t **ClassReferenceExp_toInstanceDt(ClassReferenceExp *ce, dt_t **pdt);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
+dt_t **Expression_toDt(Expression *e, dt_t** dtStart, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
 Symbol *toInitializer(AggregateDeclaration *ad);
 
 /*************************************
@@ -709,7 +709,7 @@ Symbol* toSymbol(StructLiteralExp *sle)
     s->Stype = t;
     sle->sym = s;
     dt_t *d = NULL;
-    Expression_toDt(sle, &d, NULL);
+    Expression_toDt(sle, &d, &d, NULL);
     s->Sdt = d;
     slist_add(s);
     outdata(s);

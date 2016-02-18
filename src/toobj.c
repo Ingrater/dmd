@@ -47,13 +47,13 @@ void obj_startaddress(Symbol *s);
 void obj_lzext(Symbol *s1,Symbol *s2);
 
 dt_t **TypeInfo_toDt(dt_t **pdt, TypeInfoDeclaration *d, Array<DataSymbolRef>* dataSymbolRefs);
-dt_t **Initializer_toDt(Initializer *init, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
+dt_t **Initializer_toDt(Initializer *init, dt_t **dtStart, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 dt_t **Type_toDt(Type *t, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 dt_t **ClassDeclaration_toDt(ClassDeclaration *cd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 dt_t **StructDeclaration_toDt(StructDeclaration *sd, dt_t **pdt, Array<DataSymbolRef> *dataSymbolRefs);
 Symbol *toSymbol(Dsymbol *s);
 Symbol *toImport(Symbol *s);
-dt_t **Expression_toDt(Expression *e, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
+dt_t **Expression_toDt(Expression *e, dt_t** dtStart, dt_t **pdt, Array<struct DataSymbolRef> *dataSymbolRefs);
 void FuncDeclaration_toObjFile(FuncDeclaration *fd, bool multiobj);
 Symbol *toThunkSymbol(FuncDeclaration *fd, int offset);
 Symbol *toVtblSymbol(ClassDeclaration *cd);
@@ -68,8 +68,8 @@ void toDebug(ClassDeclaration *cd);
 
 void objc_Module_genmoduleinfo_classes();
 
-dt_t** dtxoffVtbl(dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs);
-dt_t** dtxoffDsymbol(dt_t **pdt, Dsymbol *d, unsigned offset, Array<DataSymbolRef>* dataSymbolRefs);
+dt_t** dtxoffVtbl(dt_t* dtStart, dt_t **pdt, ClassDeclaration *cd, Array<DataSymbolRef>* dataSymbolRefs);
+dt_t** dtxoffDsymbol(dt_t* dtStart, dt_t **pdt, Dsymbol *d, unsigned offset, Array<DataSymbolRef>* dataSymbolRefs);
 
 /* ================================================================== */
 
@@ -415,7 +415,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             {
                 // vtbl for ClassInfo
                 #if TARGET_WINDOS
-                dtxoffVtbl(&dt, Type::typeinfoclass, &dataSymbolRefsClassInfo);
+                dtxoffVtbl(dt, &dt, Type::typeinfoclass, &dataSymbolRefsClassInfo);
                 #else
                 dtxoffVtbl(&dt, Type::typeinfoclass, NULL); 
                 #endif
@@ -458,7 +458,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             if (cd->baseClass)
             {
                 #if TARGET_WINDOS
-                dtxoffDsymbol(&dt, cd->baseClass, 0, &dataSymbolRefsClassInfo);
+                dtxoffDsymbol(dt, &dt, cd->baseClass, 0, &dataSymbolRefsClassInfo);
                 #else
                 dtxoffDsymbol(&dt, cd->baseClass, 0, HK_NULL);
                 #endif
@@ -532,7 +532,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
 
             // xgetRTInfo
             if (cd->getRTInfo)
-                Expression_toDt(cd->getRTInfo, &dt, NULL);
+                Expression_toDt(cd->getRTInfo, &dt, &dt, NULL);
             else if (flags & ClassFlags::noPointers)
                 dtsize_t(&dt, 0);
             else
@@ -565,9 +565,9 @@ void toObjFile(Dsymbol *ds, bool multiobj)
 
                 // ClassInfo
                 #if TARGET_WINDOS
-                dtxoffDsymbol(&dt, id, 0, &dataSymbolRefsClassInfo);
+                dtxoffDsymbol(dt, &dt, id, 0, &dataSymbolRefsClassInfo);
                 #else
-                dtxoffDsymbol(&dt, id, 0, NULL);         
+                dtxoffDsymbol(dt, &dt, id, 0, NULL);         
                 #endif
 
                 // vtbl[]
@@ -820,9 +820,9 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             {
                 // vtbl for ClassInfo
                 #if TARGET_WINDOS
-                dtxoffVtbl(&dt, Type::typeinfoclass, &dataSymbolRefs);
+                dtxoffVtbl(dt, &dt, Type::typeinfoclass, &dataSymbolRefs);
                 #else
-                dtxoffVtbl(&dt, Type::typeinfoclass, NULL); 
+                dtxoffVtbl(dt, &dt, Type::typeinfoclass, NULL); 
                 #endif
             }
             else
@@ -894,7 +894,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             // xgetRTInfo
             // xgetRTInfo
             if (id->getRTInfo)
-                Expression_toDt(id->getRTInfo, &dt, NULL);
+                Expression_toDt(id->getRTInfo, &dt, &dt, NULL);
             else
                 dtsize_t(&dt, 0);       // no pointers
 
@@ -913,9 +913,9 @@ void toObjFile(Dsymbol *ds, bool multiobj)
 
                 // ClassInfo
                 #if TARGET_WINDOS
-                dtxoffDsymbol(&dt, base, 0, &dataSymbolRefs);
+                dtxoffDsymbol(dt, &dt, base, 0, &dataSymbolRefs);
                 #else
-                dtxoffDsymbol(&dt, base, 0, NULL);
+                dtxoffDsymbol(dt, &dt, base, 0, NULL);
                 #endif
 
                 // vtbl[]
@@ -1080,9 +1080,9 @@ void toObjFile(Dsymbol *ds, bool multiobj)
             if (vd->_init)
             {
                 #if TARGET_WINDOS
-                Initializer_toDt(vd->_init, &s->Sdt, &dataSymbolRefs);
+                Initializer_toDt(vd->_init, &s->Sdt, &s->Sdt, &dataSymbolRefs);
                 #else
-                Initializer_toDt(vd->_init, &s->Sdt, NULL);
+                Initializer_toDt(vd->_init, &s->Sdt, &s->Sdt, NULL);
                 #endif
 
                 // Look for static array that is block initialized
@@ -1100,7 +1100,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                     dt_t **pdt = &s->Sdt;
                     while (--dim > 0)
                     {
-                        pdt = Expression_toDt(ie->exp, pdt, NULL);
+                      pdt = Expression_toDt(ie->exp, &s->Sdt, pdt, NULL);
                     }
                 }
             }
@@ -1168,7 +1168,7 @@ void toObjFile(Dsymbol *ds, bool multiobj)
                 toInitializer(ed);
                 ed->sinit->Sclass = scclass;
                 ed->sinit->Sfl = FLdata;
-                Expression_toDt(tc->sym->defaultval, &ed->sinit->Sdt, NULL);
+                Expression_toDt(tc->sym->defaultval, &ed->sinit->Sdt, &ed->sinit->Sdt, NULL);
                 outdata(ed->sinit);
             }
             ed->semanticRun = PASSobj;
