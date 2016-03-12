@@ -93,10 +93,9 @@
   <libpaths />
   <deffile />
   <resfile />
-  <exefile>$(OutDir)\$(ProjectName).exe</exefile>
+  <exefile>$(OutDir)\dmd.exe</exefile>
   <useStdLibPath>1</useStdLibPath>
   <cRuntime>2</cRuntime>
-  <privatePhobos>0</privatePhobos>
   <additionalOptions>-L/STACK:8388608</additionalOptions>
   <preBuildCommand />
   <postBuildCommand />
@@ -198,7 +197,6 @@
   <exefile>$(OutDir)\$(ProjectName).exe</exefile>
   <useStdLibPath>1</useStdLibPath>
   <cRuntime>1</cRuntime>
-  <privatePhobos>0</privatePhobos>
   <additionalOptions>-L/STACK:8388608</additionalOptions>
   <preBuildCommand />
   <postBuildCommand />
@@ -218,7 +216,7 @@
   <verbose>0</verbose>
   <vtls>0</vtls>
   <vgc>0</vgc>
-  <symdebug>1</symdebug>
+  <symdebug>2</symdebug>
   <optimize>0</optimize>
   <cpu>0</cpu>
   <isX86_64>1</isX86_64>
@@ -240,7 +238,7 @@
   <useUnitTests>0</useUnitTests>
   <useInline>0</useInline>
   <release>0</release>
-  <preservePaths>0</preservePaths>
+  <preservePaths>1</preservePaths>
   <warnings>0</warnings>
   <infowarnings>0</infowarnings>
   <checkProperty>0</checkProperty>
@@ -271,7 +269,7 @@
   <doHdrGeneration>0</doHdrGeneration>
   <hdrdir />
   <hdrname />
-  <doXGeneration>1</doXGeneration>
+  <doXGeneration>0</doXGeneration>
   <xfilename>$(IntDir)\$(TargetName).json</xfilename>
   <debuglevel>0</debuglevel>
   <debugids />
@@ -297,10 +295,9 @@
   <libpaths />
   <deffile />
   <resfile />
-  <exefile>$(OutDir)\$(ProjectName).exe</exefile>
+  <exefile>$(OutDir)\dmd.exe</exefile>
   <useStdLibPath>1</useStdLibPath>
   <cRuntime>2</cRuntime>
-  <privatePhobos>0</privatePhobos>
   <additionalOptions>-L/STACK:8388608</additionalOptions>
   <preBuildCommand />
   <postBuildCommand />
@@ -402,7 +399,6 @@
   <exefile>$(OutDir)\$(ProjectName).exe</exefile>
   <useStdLibPath>1</useStdLibPath>
   <cRuntime>1</cRuntime>
-  <privatePhobos>0</privatePhobos>
   <additionalOptions>-L/STACK:8388608</additionalOptions>
   <preBuildCommand />
   <postBuildCommand />

@@ -1419,7 +1419,7 @@ public:
         const char *name = sd->toPrettyChars();
         size_t namelen = strlen(name);
         pdt = dtsize_t(pdt, namelen);
-        pdt = dtxoffDsymbol(*pdtStart, pdt, d, Type::typeinfostruct->structsize, dataSymbolRefs);
+        pdt = dtxoff(pdt, d->csym, Type::typeinfostruct->structsize);
 
         // void[] init;
         pdt = dtsize_t(pdt, sd->structsize);            // init.length
