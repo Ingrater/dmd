@@ -16,6 +16,7 @@ import core.sys.posix.stdio;
 import core.sys.posix.stdlib;
 import core.sys.posix.sys.wait;
 import core.sys.posix.unistd;
+import core.sys.windows.windows;
 import ddmd.errors;
 import ddmd.globals;
 import ddmd.mars;
@@ -29,7 +30,40 @@ version (Windows) extern (C) int putenv(const char*);
 version (Windows) extern (C) int spawnlp(int, const char*, const char*, const char*, const char*);
 version (Windows) extern (C) int spawnl(int, const char*, const char*, const char*, const char*);
 version (Windows) extern (C) int spawnv(int, const char*, const char**);
-version (CRuntime_Microsoft) extern (Windows) uint GetShortPathNameA(const char* lpszLongPath, char* lpszShortPath, uint cchBuffer);
+version (CRuntime_Microsoft)
+{
+  extern (Windows) uint GetShortPathNameA(const char* lpszLongPath, char* lpszShortPath, uint cchBuffer);
+
+  // until the new windows bindings are available when building dmd.
+  alias STARTUPINFOA = STARTUPINFO;
+
+  // dwCreationFlags for CreateProcess() and CreateProcessAsUser()
+  enum : DWORD {
+    DEBUG_PROCESS               = 0x00000001,
+    DEBUG_ONLY_THIS_PROCESS     = 0x00000002,
+    CREATE_SUSPENDED            = 0x00000004,
+    DETACHED_PROCESS            = 0x00000008,
+    CREATE_NEW_CONSOLE          = 0x00000010,
+    NORMAL_PRIORITY_CLASS       = 0x00000020,
+    IDLE_PRIORITY_CLASS         = 0x00000040,
+    HIGH_PRIORITY_CLASS         = 0x00000080,
+    REALTIME_PRIORITY_CLASS     = 0x00000100,
+    CREATE_NEW_PROCESS_GROUP    = 0x00000200,
+    CREATE_UNICODE_ENVIRONMENT  = 0x00000400,
+    CREATE_SEPARATE_WOW_VDM     = 0x00000800,
+    CREATE_SHARED_WOW_VDM       = 0x00001000,
+    CREATE_FORCEDOS             = 0x00002000,
+    BELOW_NORMAL_PRIORITY_CLASS = 0x00004000,
+    ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000,
+    CREATE_BREAKAWAY_FROM_JOB   = 0x01000000,
+    CREATE_WITH_USERPROFILE     = 0x02000000,
+    CREATE_DEFAULT_ERROR_MODE   = 0x04000000,
+    CREATE_NO_WINDOW            = 0x08000000,
+    PROFILE_USER                = 0x10000000,
+    PROFILE_KERNEL              = 0x20000000,
+    PROFILE_SERVER              = 0x40000000
+  }
+}
 
 static if (__linux__ || __APPLE__)
 {
@@ -786,36 +820,40 @@ version (Windows)
         if (status == -1)
         {
             // spawnlp returns intptr_t in some systems, not int
-            /*#ifdef _MSC_VER
-             OutBuffer cmdbuf;
-             cmdbuf.writestring("\"");
-             cmdbuf.writestring(cmd);
-             cmdbuf.writestring("\" ");
-             cmdbuf.writestring(args);
+            version (CRuntime_Microsoft)
+            {
+               // if paths get to long spawnlp will fail. Use propper win32 process spaning instead.
+               OutBuffer cmdbuf;
+               cmdbuf.writestring("\"");
+               cmdbuf.writestring(cmd);
+               cmdbuf.writestring("\" ");
+               cmdbuf.writestring(args);
              
-             STARTUPINFOA startInf;
-             memset(&startInf, 0, sizeof startInf);
-             startInf.cb = sizeof(startInf);
-             PROCESS_INFORMATION procInf;
-             memset(&procInf, 0, sizeof procInf);
+               STARTUPINFOA startInf;
+               memset(&startInf, 0, STARTUPINFOA.sizeof);
+               startInf.cb = STARTUPINFOA.sizeof;
+               PROCESS_INFORMATION procInf;
+               memset(&procInf, 0, PROCESS_INFORMATION.sizeof);
              
-             BOOL b = CreateProcessA(NULL, cmdbuf.peekString(), NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL, &startInf, &procInf);
-             if (b) {
-             // Wait till cmd do its job
-             WaitForSingleObject(procInf.hProcess, INFINITE);
-             // Check whether our command succeeded?
-             DWORD returnCode;
-             GetExitCodeProcess(procInf.hProcess, &returnCode);
-             status = returnCode;
-             // Avoid memory leak by closing process handle
-             CloseHandle(procInf.hProcess);
-             }
-             else {
-             status = -1;
-             }
-             #else*/
-            status = spawnlp(0, cmd, cmd, args, null);
-            //#endif
+               BOOL b = CreateProcessA(null, cmdbuf.peekString(), null, null, 0, NORMAL_PRIORITY_CLASS, null, null, &startInf, &procInf);
+               if (b) {
+                 // Wait till cmd do its job
+                 WaitForSingleObject(procInf.hProcess, INFINITE);
+                 // Check whether our command succeeded?
+                 DWORD returnCode;
+                 GetExitCodeProcess(procInf.hProcess, &returnCode);
+                 status = returnCode;
+                 // Avoid memory leak by closing process handle
+                 CloseHandle(procInf.hProcess);
+               }
+               else {
+                 status = -1;
+               }
+            }
+            else
+            {
+              status = spawnlp(0, cmd, cmd, args, null);
+            }
         }
         //    if (global.params.verbose)
         //      fprintf(global.stdmsg, "\n");

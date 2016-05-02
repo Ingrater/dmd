@@ -90,7 +90,7 @@ else
             return p;
         }
 
-        void* xrealloc(void* p, size_t size)
+        void* xrealloc(void* p, size_t size) nothrow
         {
             if (!size)
             {
@@ -113,7 +113,7 @@ else
             return p;
         }
 
-        void error()
+        void error() nothrow
         {
             printf("Error: out of memory\n");
             exit(EXIT_FAILURE);

@@ -35,7 +35,7 @@ struct OutBuffer
         return p;
     }
 
-    extern (C++) void reserve(size_t nbytes)
+    extern (C++) void reserve(size_t nbytes) nothrow
     {
         //printf("OutBuffer::reserve: size = %d, offset = %d, nbytes = %d\n", size, offset, nbytes);
         if (size - offset < nbytes)
@@ -56,7 +56,7 @@ struct OutBuffer
         offset = 0;
     }
 
-    extern (C++) void write(const(void)* data, size_t nbytes)
+    extern (C++) void write(const(void)* data, size_t nbytes) nothrow
     {
         if (doindent && !notlinehead)
         {
@@ -81,7 +81,7 @@ struct OutBuffer
         write(string, *string + 1);
     }
 
-    extern (C++) void writestring(const(char)* string)
+    extern (C++) void writestring(const(char)* string) nothrow
     {
         write(string, strlen(string));
     }
@@ -110,7 +110,7 @@ struct OutBuffer
             notlinehead = 0;
     }
 
-    extern (C++) void writeByte(uint b)
+    extern (C++) void writeByte(uint b) nothrow
     {
         if (doindent && !notlinehead && b != '\n')
         {
@@ -402,7 +402,7 @@ struct OutBuffer
     }
 
     // Append terminating null if necessary and get view of internal buffer
-    extern (C++) char* peekString()
+    extern (C++) char* peekString() nothrow
     {
         if (!offset || data[offset - 1] != '\0')
         {
