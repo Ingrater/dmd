@@ -61,6 +61,7 @@ Symbol *toModuleAssert(Module *m);
 Symbol *toModuleUnittest(Module *m);
 Symbol *toModuleArray(Module *m);
 Symbol *toImport(Dsymbol *ds);
+Symbol *toImport(Symbol* s);
 Symbol *toInitializer(AggregateDeclaration *ad);
 Symbol *aaGetSymbol(TypeAArray *taa, const char *func, int flags);
 Symbol* toSymbol(StructLiteralExp *sle);
@@ -5328,7 +5329,19 @@ elem *toElem(Expression *e, IRState *irs)
 
             if (sle->sinit)
             {
-                elem *e = el_var(sle->sinit);
+                elem *e = NULL;
+                #if TARGET_WINDOS
+                if(global.params.useDll && sle->sd->isImportedSymbol())
+                {
+                    e = el_una(OPind, TYstruct, el_var(toImport(sle->sinit)));
+                }
+                else
+                {
+                    e = el_var(sle->sinit);
+                }
+                #else
+                e = el_var(sle->sinit);
+                #endif
                 e->ET = Type_toCtype(sle->sd->type);
                 el_setLoc(e, sle->loc);
 
