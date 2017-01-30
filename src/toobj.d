@@ -1010,6 +1010,8 @@ void toObjFile(Dsymbol ds, bool multiobj)
                 Expression_toDt(tc.sym.defaultval, dtb, null);
                 ed.sinit.Sdt = dtb.finish();
                 outdata(ed.sinit);
+                if(global.params.dll && ed.isExport())
+                    objmod.export_data_symbol(ed.sinit);
             }
             ed.semanticRun = PASSobj;
         }
