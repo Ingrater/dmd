@@ -1,0 +1,97 @@
+
+# Do not build on tags (GitHub only)
+skip_tags: true
+
+
+# Operating system (build VM template)
+os: Visual Studio 2015
+
+environment:
+  matrix:
+    - APPVEYOR_JOB_ARCH:   x64
+      D_COMPILER:          dmd
+      D_VERSION:           2.071.2
+    # - APPVEYOR_JOB_ARCH:   x86
+    #   D_COMPILER:          dmd
+    # - APPVEYOR_JOB_ARCH:   x64
+    #   D_COMPILER:          ldc
+    # - APPVEYOR_JOB_ARCH:   x86
+    #   D_COMPILER:          ldc
+
+
+# scripts that are called at very beginning, before repo cloning
+init:
+  - git config --global core.autocrlf input
+
+# scripts that run after cloning repository
+install:
+  - cd c:\projects
+  # Download & extract DMC & D compiler
+  - ps: |
+        appveyor DownloadFile "http://ftp.digitalmars.com/dmc.zip" -Filename dmc.zip
+        7z x dmc.zip > $null
+        If ($Env:D_COMPILER -eq 'dmd') {
+            $dmdVersion = '2.071.2'
+            appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$Env:D_VERSION/dmd.$Env:D_VERSION.windows.7z" -FileName dmd2.7z
+            7z x dmd2.7z > $null
+            Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
+            c:\projects\dmd2\windows\bin\dmd.exe --version
+        } Else {
+            If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+                appveyor DownloadFile 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win64-msvc.zip' -FileName ldc2.zip
+                7z x ldc2.zip > $null
+                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win64-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-1.0.0-win64-msvc\bin\ldc2 --version
+            } Else {
+                appveyor DownloadFile 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win32-msvc.zip' -FileName ldc2.zip
+                7z x ldc2.zip > $null
+                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win32-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-1.0.0-win32-msvc\bin\ldc2 --version
+            }
+        }
+  - set PATH=c:\projects\dmd2\windows\bin\;%PATH%
+  # clone druntime and phobos
+  - git clone --branch %APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_ACCOUNT_NAME%/druntime
+  - git clone --branch %APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_ACCOUNT_NAME%/phobos
+  # Download & extract GNU make + utils (for dmd-testsuite)
+  # TODO get make from better source
+  - bash --version
+  - appveyor DownloadFile "https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0" -FileName make.7z
+  - md make
+  - cd make
+  - 7z x ..\make.7z > nul
+  - make --version
+  - cd ..
+  # Set environment variables
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64 )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86 )
+
+
+# build ################################################################################################################
+
+
+before_build:
+  - cd c:\projects
+
+build_script:
+  - cd c:\projects\dmd\src
+  - make -f win32.mak HOST_DC="%D_COMPILER%" CC="c:\projects\dm\bin\dmc" LIB="c:\projects\dm\bin\lib"
+  - cd c:\projects\druntime
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" (call make -f win64.mak DMD=../dmd/src/dmd) else (call make -f win64.mak druntime32mscoff DMD=../dmd/src/dmd)
+  - cd c:\projects\phobos
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" (call make -f win64.mak DMD=../dmd/src/dmd) else (call make -f win64.mak phobos32mscoff DMD=../dmd/src/dmd)
+
+after_build:
+  - ps: 'echo after_build'
+
+
+# test #################################################################################################################
+
+
+test_script:
+  # TODO 32bit LIB
+  - set LIB=c:\projects\phobos\;%UniversalCRTSdkDir%\Lib\%UCRTVersion%\um\x64;%UniversalCRTSdkDir%\Lib\%UCRTVersion%\ucrt\x64;%LIB%
+  - echo %LIB%
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" (set OS=Win_64) else (set OS=Win_32)
+  - cd c:\projects\dmd\test
+  - ..\..\make\make -j3 all

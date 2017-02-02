@@ -103,7 +103,7 @@ export SEP=$(subst /,\,/)
 DRUNTIME_PATH=..\..\druntime
 PHOBOS_PATH=..\..\phobos
 export DFLAGS=-I$(DRUNTIME_PATH)\import -I$(PHOBOS_PATH)
-export LIB=$(PHOBOS_PATH)
+#export LIB=$(PHOBOS_PATH)
 else
 export ARGS=-inline -release -g -O -fPIC
 export DMD=../src/dmd
