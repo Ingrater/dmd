@@ -3300,6 +3300,8 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         ed.protection = sc.protection;
         if (sc.stc & STCdeprecated)
             ed.isdeprecated = true;
+        if(sc.stc & STCexport)
+            ed.isexport = true;
         ed.userAttribDecl = sc.userAttribDecl;
 
         ed.semanticRun = PASSsemantic;
