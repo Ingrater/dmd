@@ -1635,6 +1635,18 @@ private bool parseCommandLine(const ref Strings arguments, const size_t argc, re
             }
             else if (strcmp(p + 1, "shared") == 0)
                 params.dll = true;
+            else if (strcmp(p + 1, "useShared") == 0)
+            {
+                static if(TARGET_WINDOS)
+                {
+                    // the useShared flag is only supported on windows
+                    global.params.useDll = true;
+                }
+                else
+                {
+                    goto Lerror;
+                }
+            }
             else if (strcmp(p + 1, "dylib") == 0)
             {
                 static if (TARGET_OSX)
