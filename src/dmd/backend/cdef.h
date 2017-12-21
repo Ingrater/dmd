@@ -699,6 +699,7 @@ enum
     WFsaveds     = 0x2000, // use push/pop DS for far functions
     WFdsnedgroup = 0x4000, // DS != DGROUP
     WFexe        = 0x8000, // generating code for Windows EXE
+    WFuseDll     = 0x10000, // generating code that uses other Windows d-dlls
 };
 
 // Object file format

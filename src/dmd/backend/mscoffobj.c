@@ -36,7 +36,10 @@
 #if TARGET_WINDOS
 
 #include        "mscoff.h"
-#include        "globals.h"
+
+#if _MSC_VER
+#include        <alloca.h>
+#endif
 
 static Outbuffer *fobjbuf;
 
@@ -1255,7 +1258,7 @@ void MsCoffObj::ehsections()
     attr = IMAGE_SCN_CNT_UNINITIALIZED_DATA | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
     emitSectionBrace(".bss", "_bss", attr, NULL);
 
-    if(global.params.useDll)
+    if(config.wflags & WFuseDll)
     {
         // Dll relocation section
         attr = IMAGE_SCN_CNT_INITIALIZED_DATA | align | IMAGE_SCN_MEM_READ;
@@ -1789,7 +1792,7 @@ void MsCoffObj::export_symbol(Symbol *s,unsigned argsize)
 
     int seg = seg_drectve();
     //printf("MsCoffObj::export_symbol(%s,%d)\n",s->Sident,argsize);
-    if (global.params.dll) // only export symbols when compiling with -shared
+    if (config.wflags & WFdll) // only export symbols when compiling with -shared
     {
         SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
         SegData[segidx_drectve]->SDbuf->write(destr, strlen(destr));
@@ -1846,7 +1849,7 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     outdata(imp_s);
 
     // now that we are done, export the original symbol
-    if (global.params.dll) // only export symbols when compiling with -shared
+    if (config.wflags & WFdll) // only export symbols when generating code for a dll
     {
         SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
         SegData[segidx_drectve]->SDbuf->write(idOrg, strlen(idOrg));
@@ -1857,7 +1860,7 @@ void MsCoffObj::export_data_symbol(Symbol *s)
 void MsCoffObj::markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
 {
     // if the data symbol does not have any cross dll references we don't need to emit any relocation information.
-    if (numRefs == 0 || !global.params.useDll)
+    if (numRefs == 0 || config.wflags & WFuseDll == 0)
       return;
 
     int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;  // align to NPTRSIZE
