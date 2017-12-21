@@ -11,7 +11,7 @@
 module dmd.declaration;
 
 // Online documentation: https://dlang.org/phobos/dmd_declaration.html
-import ddmd.dmodule;
+import dmd.dmodule;
 
 extern(C++) bool builtinTypeInfo(Type t);
 

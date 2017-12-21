@@ -45,7 +45,7 @@ import dmd.visitor;
 
 import dmd.backend.cc;
 import dmd.backend.dt;
-import ddmd.backend.obj;
+import dmd.backend.obj;
 
 alias toSymbol = dmd.tocsym.toSymbol;
 alias toSymbol = dmd.glue.toSymbol;

@@ -11,12 +11,12 @@
 module dmd.backend.dt;
 
 // Online documentation: https://dlang.org/phobos/dmd_backend_dt.html
-import ddmd.backend.obj;
+import dmd.backend.obj;
 
 import dmd.backend.cc;
 import dmd.backend.ty;
 import dmd.backend.type;
-import ddmd.root.array;
+import dmd.root.array;
 
 //struct Symbol;
 //alias uint tym_t;

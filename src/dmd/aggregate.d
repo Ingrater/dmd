@@ -33,7 +33,7 @@ import dmd.mtype;
 import dmd.tokens;
 import dmd.semantic;
 import dmd.visitor;
-import ddmd.dmodule;
+import dmd.dmodule;
 
 enum Sizeok : int
 {

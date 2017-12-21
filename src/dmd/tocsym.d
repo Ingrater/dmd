@@ -46,7 +46,7 @@ import dmd.typinf;
 import dmd.visitor;
 import dmd.irstate;
 import dmd.dmangle;
-import ddmd.todt;
+import dmd.todt;
 
 import dmd.backend.cdef;
 import dmd.backend.cc;

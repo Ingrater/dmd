@@ -18,7 +18,7 @@ import core.stdc.stdlib;
 import core.stdc.string;
 
 import dmd.globals;
-import ddmd.root.array;
+import dmd.root.array;
 
 import dmd.backend.cc;
 import dmd.backend.cdef;
