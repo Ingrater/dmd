@@ -234,7 +234,7 @@ void genModuleInfo(Module m)
     // Can only make the module info readonly if no dll relocation is required
     if(dataSymbolRefs.dim == 0)
         out_readonly(m.csym);
-        
+
     objmod.markCrossDllDataRef(m.csym, dataSymbolRefs.data, dataSymbolRefs.dim);
     outdata(m.csym);
 
@@ -394,7 +394,7 @@ void toObjFile(Dsymbol ds, bool multiobj)
                 outdata(sinit);
                 objmod.markCrossDllDataRef(sinit, dataSymbolRefsInit.data, dataSymbolRefsInit.dim);
             }
-            
+
             // the init symbol of a type info is referenced directly, so it needs to be exported
             if (global.params.dll && cd.isExport())
             {
@@ -745,7 +745,7 @@ void toObjFile(Dsymbol ds, bool multiobj)
              */
             scope dtb = new DtBuilder();
             Array!DataSymbolRef dataSymbolRefs;
-            
+
             if (Type.typeinfoclass)
                 dtxoffVtbl(dtb, Type.typeinfoclass, &dataSymbolRefs); // vtbl for ClassInfo
             else
@@ -999,7 +999,7 @@ void toObjFile(Dsymbol ds, bool multiobj)
             if (config.objfmt == OBJ_MACH && global.params.is64bit && (s.Stype.Tty & mTYLINK) == mTYthread)
             {
                 s.Sdt = dtb.finish();
-                tlsToDt(vd, s, dtb, &dataSymbolRefs);
+                tlsToDt(vd, s, sz, dtb, &dataSymbolRefs);
             }
             else if (!sz)
             {

@@ -172,7 +172,6 @@ else version (OMFandMSCOFF)
         seg_data *tlsseg_data();
         static int  fardata(char *name, targ_size_t size, targ_size_t *poffset);
         void export_symbol(Symbol *s, uint argsize);
-        void export_symbol(Symbol *s, uint argsize);
         void export_data_symbol(Symbol *s);
         void markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs);
         void pubdef(int seg, Symbol *s, targ_size_t offset);

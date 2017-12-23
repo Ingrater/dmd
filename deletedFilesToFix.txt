@@ -1,1 +1,2 @@
 -Check that switch error statement still compiles correctly
+-Fix use of global.params in backend: See https://forum.dlang.org/post/okgkpn$2qsf$1@digitalmars.com

@@ -13,8 +13,6 @@ module dmd.declaration;
 // Online documentation: https://dlang.org/phobos/dmd_declaration.html
 import dmd.dmodule;
 
-extern(C++) bool builtinTypeInfo(Type t);
-
 import dmd.aggregate;
 import dmd.arraytypes;
 import dmd.dclass;
@@ -41,6 +39,7 @@ import dmd.target;
 import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
+import dmd.typinf;
 
 /************************************
  * Check to see the aggregate type is nested and its context pointer is

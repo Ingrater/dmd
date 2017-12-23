@@ -28,6 +28,9 @@ import dmd.semantic;
 import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
+import dmd.dtemplate;
+import dmd.aggregate;
+import dmd.dmodule;
 
 /***********************************************************
  */
@@ -311,7 +314,7 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
         }
         return memtype;
     }
-    
+
     override bool isExport()
     {
         if (isexport) // if directly exported, even if private

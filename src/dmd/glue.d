@@ -511,19 +511,6 @@ void genObjFile(Module m, bool multiobj)
     if (global.params.useModuleInfo && Module.moduleinfo /*|| needModuleInfo()*/)
         genModuleInfo(m);
 
-    // When buildin a shared library export the implementation specific module symbols
-    if(global.params.dll && m.isExport && m.isRoot())
-    {
-        if (m.massert)
-          objmod.export_symbol(m.massert, 0);
-
-        if (m.marray)
-          objmod.export_symbol(m.marray, 0);
-
-        if (m.munittest)
-          objmod.export_symbol(m.munittest, 0);
-    }
-
     objmod.termfile();
 }
 

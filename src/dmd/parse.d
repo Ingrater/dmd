@@ -757,7 +757,7 @@ final class Parser(AST) : Lexer
                 goto Lstc;
 
             case TOKexport:
-                stc = STCexport;
+                stc = AST.STCexport;
                 goto Lstc;
 
             //case TOKmanifest:   stc = STCmanifest;     goto Lstc;
@@ -1428,7 +1428,7 @@ final class Parser(AST) : Lexer
                 break;
 
             case TOKexport:
-                stc = STCexport;
+                stc = AST.STCexport;
                 break;
 
             case TOKscope:
@@ -3934,7 +3934,7 @@ final class Parser(AST) : Lexer
                     if (pdisable)
                         *pdisable = stc & AST.STCdisable ? 1 : 0;
                     if (pexport)
-                        *pexport = stc & STCexport ? 1 : 0;
+                        *pexport = stc & AST.STCexport ? 1 : 0;
 
                     /* Insert tf into
                      *   ts -> ... -> t
@@ -4031,7 +4031,7 @@ final class Parser(AST) : Lexer
                 goto L1;
 
             case TOKexport:
-                stc = STCexport;
+                stc = AST.STCexport;
                 goto L1;
 
             case TOKref:
@@ -4374,7 +4374,7 @@ final class Parser(AST) : Lexer
                 error("multiple declarations must have the same type, not `%s` and `%s`", tfirst.toChars(), t.toChars());
 
             if(export_)
-                storage_class |= STCexport;
+                storage_class |= AST.STCexport;
 
             bool isThis = (t.ty == AST.Tident && (cast(AST.TypeIdentifier)t).ident == Id.This && token.value == TOKassign);
             if (ident)
