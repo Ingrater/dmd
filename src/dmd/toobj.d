@@ -388,7 +388,7 @@ void toObjFile(Dsymbol ds, bool multiobj)
                 Array!DataSymbolRef dataSymbolRefsInit;
                 ClassDeclaration_toDt(cd, dtb, &dataSymbolRefsInit);
                 sinit.Sdt = dtb.finish();
-                // initializer can only be readonly if there are not dll relocations
+                // initializer can only be readonly if there are no dll relocations
                 if(dataSymbolRefsInit.dim == 0)
                     out_readonly(sinit);
                 outdata(sinit);
@@ -1033,11 +1033,11 @@ void toObjFile(Dsymbol ds, bool multiobj)
             outdata(s);
             if (vd.type.isMutable() || !vd._init)
                 write_pointers(vd.type, s, 0);
-            if (global.params.dll && vd.isExport())
+            if (vd.isExport())
             {
                 objmod.export_symbol(s, 0);
-                objmod.markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
             }
+            objmod.markCrossDllDataRef(s, dataSymbolRefs.data, dataSymbolRefs.dim);
         }
 
         override void visit(EnumDeclaration ed)

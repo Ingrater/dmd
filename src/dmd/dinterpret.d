@@ -2180,7 +2180,7 @@ public:
             Declaration decl = (cast(VarExp)e.e1).var;
 
             // We cannot take the address of an imported symbol at compile time
-            if (decl.isImportedSymbol()) {
+            if (decl.isImportedSymbol() && !decl.isDataseg()) {
                 e.error("cannot take address of imported symbol `%s` at compile time", decl.toChars());
                 result = CTFEExp.cantexp;
                 return;

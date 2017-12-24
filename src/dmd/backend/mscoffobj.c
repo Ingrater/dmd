@@ -1787,21 +1787,24 @@ char *obj_mangle2(Symbol *s,char *dest)
 
 void MsCoffObj::export_symbol(Symbol *s,unsigned argsize)
 {
-    char dest[DEST_LEN+1];
-    char *destr = obj_mangle2(s, dest);
-
-    int seg = seg_drectve();
     //printf("MsCoffObj::export_symbol(%s,%d)\n",s->Sident,argsize);
     if (config.wflags & WFdll) // only export symbols when compiling with -shared
     {
-        SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
-        SegData[segidx_drectve]->SDbuf->write(destr, strlen(destr));
+        char dest[DEST_LEN+1];
+        char *destr = obj_mangle2(s, dest);
+
+        int seg = seg_drectve();
+        SegData[seg]->SDbuf->write(" /EXPORT:", 9);
+        SegData[seg]->SDbuf->write(destr, strlen(destr));
     }
 }
 
 void MsCoffObj::export_data_symbol(Symbol *s)
 {
     //printf("MsCoffObj::export_data_symbol(%s)\n", s->Sident);
+    if ((config.wflags & WFdll) == 0) // only export symbols when generating code for a dll
+        return;
+
     // if a data symbol exists the following code generates a indirection symbol
     // e.g:
     // symbol: __gshared int var;
@@ -1849,18 +1852,16 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     outdata(imp_s);
 
     // now that we are done, export the original symbol
-    if (config.wflags & WFdll) // only export symbols when generating code for a dll
-    {
-        SegData[segidx_drectve]->SDbuf->write(" /EXPORT:", 9);
-        SegData[segidx_drectve]->SDbuf->write(idOrg, strlen(idOrg));
-        SegData[segidx_drectve]->SDbuf->write(",DATA", 5);
-    }
+    int seg = seg_drectve();
+    SegData[seg]->SDbuf->write(" /EXPORT:", 9);
+    SegData[seg]->SDbuf->write(idOrg, strlen(idOrg));
+    SegData[seg]->SDbuf->write(",DATA", 5);
 }
 
 void MsCoffObj::markCrossDllDataRef(Symbol *dataSym, DataSymbolRef* refs, targ_size_t numRefs)
 {
     // if the data symbol does not have any cross dll references we don't need to emit any relocation information.
-    if (numRefs == 0 || config.wflags & WFuseDll == 0)
+    if (numRefs == 0 || (config.wflags & WFuseDll) == 0)
       return;
 
     int align = I64 ? IMAGE_SCN_ALIGN_8BYTES : IMAGE_SCN_ALIGN_4BYTES;  // align to NPTRSIZE

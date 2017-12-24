@@ -1,2 +1,2 @@
 -Check that switch error statement still compiles correctly
--Fix use of global.params in backend: See https://forum.dlang.org/post/okgkpn$2qsf$1@digitalmars.com
+- Revert commit: https://github.com/dlang/dmd/commit/3ae9f7207a0f4bb76cb8260fe82969211556dd0a
