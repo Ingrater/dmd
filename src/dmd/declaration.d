@@ -189,6 +189,53 @@ extern (C++) void ObjectNotFound(Identifier id)
     fatal();
 }
 
+/***********************************************
+* Check if a given symbols needs to be exporte due to its parent.
+*/
+bool isSymbolExportDueToParent(Dsymbol symbol)
+{
+    Dsymbol realParent = symbol.parent;
+    while (true)
+    {
+        TemplateInstance templateInstance = realParent.isTemplateInstance();
+        if(templateInstance !is null)
+        {
+            realParent = templateInstance.parent;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (AggregateDeclaration c = realParent.isAggregateDeclaration())
+    {
+        return c.isExport();
+    }
+    return false;
+}
+
+bool isImportedSymbolDefault(Dsymbol symbol)
+{
+    if (!symbol.isExport())
+        return false;
+    Dsymbol curParent = symbol.parent;
+    if (parent is null)
+        return false;
+    Module _module = curParent.isModule();
+    while (_module is null)
+    {
+        curParent = curParent.parent;
+        if (curParent is null)
+            return false;
+        TemplateInstance templateInstance = curParent.isTemplateInstance();
+        if(templateInstance !is null && templateInstance.minst !is null)
+            _module = templateInstance.minst;
+        else
+            _module = curParent.isModule();
+    }
+    return !_module.isRoot();
+}
+
 enum STCundefined           = 0L;
 enum STCstatic              = (1L << 0);
 enum STCextern              = (1L << 1);
@@ -1174,42 +1221,12 @@ extern (C++) class VarDeclaration : Declaration
         if (protection.kind <= PROTprivate) // not accessible, no need to check parents
             return false;
         // check if any of the parents is a class/struct and if they are exported
-        Dsymbol realParent = parent;
-        while (true)
-        {
-            TemplateMixin templateMixin = realParent.isTemplateMixin();
-            if(templateMixin !is null)
-            {
-                realParent = templateMixin.parent;
-            }
-            else
-            {
-                break;
-            }
-        }
-        if (AggregateDeclaration c = realParent.isAggregateDeclaration())
-        {
-            return c.isExport();
-        }
-        return false;
+        return isSymbolExportDueToParent(this);
     }
 
     override bool isImportedSymbol()
     {
-        if (!isExport())
-            return false;
-        Dsymbol curParent = parent;
-        if (parent is null)
-            return false;
-        Module _module = curParent.isModule();
-        while (_module is null)
-        {
-            curParent = curParent.parent;
-            if (curParent is null)
-                return false;
-            _module = curParent.isModule();
-        }
-        return !_module.isRoot();
+        return isImportedSymbolDefault(this);
     }
 
     /*******************************
