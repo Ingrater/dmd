@@ -219,7 +219,7 @@ bool isImportedSymbolDefault(Dsymbol symbol)
     if (!symbol.isExport())
         return false;
     Dsymbol curParent = symbol.parent;
-    if (parent is null)
+    if (symbol.parent is null)
         return false;
     Module _module = curParent.isModule();
     while (_module is null)
