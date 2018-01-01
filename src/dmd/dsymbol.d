@@ -806,7 +806,7 @@ extern (C++) class Dsymbol : RootObject
         return false;
     }
 
-    // is Dsymbol imported?
+    // is Dsymbol imported for the given module?
     bool isImportedSymbol()
     {
         return false;

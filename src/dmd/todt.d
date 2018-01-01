@@ -42,6 +42,7 @@ import dmd.toobj;
 import dmd.typesem;
 import dmd.typinf;
 import dmd.visitor;
+import dmd.dmodule;
 
 import dmd.backend.cc;
 import dmd.backend.dt;

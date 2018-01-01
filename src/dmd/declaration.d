@@ -195,6 +195,8 @@ extern (C++) void ObjectNotFound(Identifier id)
 bool isSymbolExportDueToParent(Dsymbol symbol)
 {
     Dsymbol realParent = symbol.parent;
+    if(realParent is null)
+        return false;
     while (true)
     {
         TemplateInstance templateInstance = realParent.isTemplateInstance();
@@ -233,7 +235,11 @@ bool isImportedSymbolDefault(Dsymbol symbol)
         else
             _module = curParent.isModule();
     }
-    return !_module.isRoot();
+    if(_module.isRoot())
+        return false;
+    if(global.sharedLibraryId == _module.sharedLibraryId)
+        return false;
+    return true;
 }
 
 enum STCundefined           = 0L;
@@ -1711,14 +1717,27 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         // For builtin type infos forward to the actual implementation.
         if (builtinTypeInfo(tinfo))
             return type.toDsymbol(null).isImportedSymbol();
+        
+        // If its not exported we don't need to import it.
+        if(!isExport())
+            return false;
+
         // if we don't have a parent the type info has been instanciated during
         // a genObj phase. That means its definitly local.
         if (parent is null)
             return false;
         Module m = parent.isModule();
         assert(m); // parent should always be a module
-        // if the module that instanciated the type info is not a root module we need to import the type info.
-        return !m.isRoot() && this.isExport();
+        // if the module that instanciated the type info is a root module there is no need to import.
+        if(m.isRoot())
+            return false;
+
+        // if the type info is coming from the same shared library we don't need to import
+        if(global.sharedLibraryId == m.sharedLibraryId)
+            return false;
+
+        // import in all other cases
+        return true;
     }
 
     override final inout(TypeInfoDeclaration) isTypeInfoDeclaration() inout

@@ -261,6 +261,7 @@ struct Global
 
     Array!Identifier* versionids;    // command line versions and predefined versions
     Array!Identifier* debugids;      // command line debug versions and predefined versions
+    const(char)[] sharedLibraryId;   // Identifier for the shared library currently being build
 
     /* Start gagging. Return the current number of gagged errors
      */

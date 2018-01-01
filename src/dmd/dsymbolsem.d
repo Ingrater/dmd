@@ -3078,6 +3078,48 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                 pd.error("takes no argument");
             goto Ldecl;
         }
+        else if (pd.ident == Id.sharedlibrary)
+        {
+            if (!pd.args || pd.args.dim != 1)
+                pd.error("string expected for shared library identifier");
+            else
+            {
+                auto se = semanticString(sc, (*pd.args)[0], "shared library identifier");
+                if (!se)
+                    goto Lnodecl;
+                (*pd.args)[0] = se;
+
+                if(se.len == 0)
+                {
+                    pd.error("empty string not allowed as argument");
+                }
+
+                if (global.params.verbose)
+                    fprintf(global.stdmsg, "shared library id   %.*s\n", se.len, se.string);
+
+                if(sc._module.sharedLibraryId.length > 0)
+                {
+                    pd.error("only allowed once per module.");
+                }
+
+                sc._module.sharedLibraryId = se.string[0..se.len];
+                if(global.params.useDll && sc._module.isRoot())
+                {
+                    if(global.sharedLibraryId.length == 0)
+                    {
+                        global.sharedLibraryId = sc._module.sharedLibraryId;
+                    }
+                    else if(global.sharedLibraryId != sc._module.sharedLibraryId)
+                    {
+                        pd.error("all modules compiled into the same executable / shared library must use the same shared library identifier. "
+                                 "Last seen identifier '%.*s' current identifier '%.*s'.",
+                                 global.sharedLibraryId.length, global.sharedLibraryId.ptr,
+                                 sc._module.sharedLibraryId.length, sc._module.sharedLibraryId.ptr);
+                    }
+                }
+            }
+            goto Lnodecl;
+        }
         else if (global.params.ignoreUnsupportedPragmas)
         {
             if (global.params.verbose)

@@ -335,12 +335,6 @@ final class Parser(AST) : Lexer
                             nextToken();
                         break;
                     }
-                case TOKexport:
-                    {
-                        mod.isExport = true;
-                        nextToken();
-                        break;
-                    }
                 default:
                     {
                         error("`module` expected instead of `%s`", token.toChars());

@@ -1814,7 +1814,7 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     // the import library
     char idBuf[DEST_LEN + 1];
     char* idOrg = obj_mangle2(s, idBuf);
-    char* id = (char*)malloc(strlen(idOrg) + 1 + 6);
+    /*char* id = (char*)malloc(strlen(idOrg) + 1 + 6);
     memcpy(id, "__imp_", 6);
     memcpy(id + 6, idOrg, strlen(idOrg) + 1);
 
@@ -1849,7 +1849,7 @@ void MsCoffObj::export_data_symbol(Symbol *s)
     imp_s->Sdt = dtb.finish();
 
     // finally write the import symbol
-    outdata(imp_s);
+    outdata(imp_s);*/
 
     // now that we are done, export the original symbol
     int seg = seg_drectve();

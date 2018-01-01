@@ -1099,34 +1099,12 @@ extern (C++) class FuncDeclaration : Declaration
             return true;
         if (protection.kind <= PROTprivate) // not accessible, no need to check parents 
             return false;
-        // check if any of the parents is a class/struct and if they are exported
-        Dsymbol realParent = parent;
-        while (true)
-        {
-            if (TemplateMixin templateMixin = realParent.isTemplateMixin())
-            {
-                realParent = templateMixin.parent;
-            }
-            else if (TemplateInstance instance = realParent.isTemplateInstance())
-            {
-                realParent = instance.parent;
-            }
-            else
-            {
-                break;
-            }
-        }
-        if (AggregateDeclaration c = realParent.isAggregateDeclaration())
-        {
-            return c.isExport();
-        }
-        return false;
+        return isSymbolExportDueToParent(this);
     }
 
     override final bool isImportedSymbol()
     {
-        // Functions are never imported as the implib takes care of calling the imported symbol for us.
-        return false;
+        return isImportedSymbolDefault(this);
     }
 
     override final bool isCodeseg()

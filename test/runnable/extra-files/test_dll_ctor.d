@@ -1,4 +1,3 @@
-
 module test_dll_ctor;
 
 import test_dll_ctor_a;

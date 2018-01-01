@@ -1,4 +1,3 @@
-
 module test_dll_interface;
 
 import test_dll_interface_a;

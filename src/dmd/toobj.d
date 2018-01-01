@@ -114,7 +114,10 @@ void genModuleInfo(Module m)
     for (size_t i = 0; i < m.aimports.dim; i++)
     {
         Module mod = m.aimports[i];
-        if (!mod.needmoduleinfo)
+
+        // Don't reference modules outside of the current executable / shared library.
+        // The operating systems loader will take care of these dependencies for us.
+        if (!mod.needmoduleinfo || (global.params.useDll && mod.sharedLibraryId != m.sharedLibraryId))
             aimports_dim--;
     }
 
@@ -183,31 +186,19 @@ void genModuleInfo(Module m)
         {
             Module mod = m.aimports[i];
 
-            if (!mod.needmoduleinfo)
+            // Don't reference modules outside of the current executable / shared library.
+            // The operating systems loader will take care of these dependencies for us.
+            if (!mod.needmoduleinfo || (global.params.useDll && mod.sharedLibraryId != m.sharedLibraryId))
                 continue;
 
             Symbol *s = toSymbol(mod);
 
-            // When using dlls non root symbols might reside in a different dll and need dll relocation.
-            if(!global.params.isWindows || !global.params.useDll || mod.isRoot())
-            {
-                /* Weak references don't pull objects in from the library,
-                 * they resolve to 0 if not pulled in by something else.
-                 * Don't pull in a module just because it was imported.
-                 */
-                s.Sflags |= SFLweak;
-                dtb.xoff(s, 0, TYnptr);
-            }
-            else
-            {
-                Symbol *imps = toImport(s);
-                imps.Sflags |= SFLweak;
-                DataSymbolRef newRef;
-                newRef.offsetInDt = dtb.length();
-                newRef.referenceOffset = 0;
-                dataSymbolRefs.push(newRef);
-                dtb.xoff(imps, 0, TYnptr);
-            }
+            /* Weak references don't pull objects in from the library,
+             * they resolve to 0 if not pulled in by something else.
+             * Don't pull in a module just because it was imported.
+             */
+            s.Sflags |= SFLweak;
+            dtb.xoff(s, 0, TYnptr);
         }
     }
     if (flags & MIlocalClasses)
@@ -241,9 +232,6 @@ void genModuleInfo(Module m)
     //////////////////////////////////////////////
 
     objmod.moduleinfo(msym);
-    // export the module info if required
-    if(global.params.dll && m.isExport)
-        objmod.export_data_symbol(msym);
 }
 
 /*****************************************

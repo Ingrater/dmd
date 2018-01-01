@@ -64,10 +64,8 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
     printf("&g_arr[2] = %p == %p == %p\n", g_parr, g_arr.ptr + 2, g_arr_addr(2));
     if(!(g_parr == g_arr.ptr + 2 && g_arr.ptr + 2 == g_arr_addr(2)))
         return 1;
-    printf("&get_g_var = %p == %p != %p\n", g_pfunc, cast(void*)&get_g_var, get_g_var_addr());
-    // function pointers do not have identity because they can point to the trampoline or the actual function.
-    // Thats why &get_g_var is not the same as the value returned by get_g_var_addr
-    if(!(g_pfunc == cast(void*)&get_g_var && cast(void*)&get_g_var != get_g_var_addr()))
+    printf("&get_g_var = %p == %p == %p\n", g_pfunc, cast(void*)&get_g_var, get_g_var_addr());
+    if(!(g_pfunc == cast(void*)&get_g_var && cast(void*)&get_g_var == get_g_var_addr()))
         return 1;
     printf("g_arr[]: [%p, %p, %p] == [%p, %p, %p]\n", g_arrp[0], g_arrp[1], g_arrp[2], g_arr_addr(0), g_arr_addr(1), g_arr_addr(2));
     if(!(g_arrp[0] == g_arr_addr(0)))
