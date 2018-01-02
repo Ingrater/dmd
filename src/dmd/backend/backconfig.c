@@ -52,6 +52,7 @@ void out_config_init(
         bool stackstomp,        // add stack stomping code
         unsigned char avx,      // use AVX instruction set (0, 1, 2)
         bool betterC,           // implement "Better C"
+        bool dll,               // build a dll
         bool useDll             // the generated code uses code from other d-dlls
         )
 {
@@ -92,7 +93,8 @@ void out_config_init(
 
     if (exe)
         config.wflags |= WFexe;         // EXE file only optimizations
-    else
+
+    if (dll)
         config.wflags |= WFdll;
 
     if (useDll)
