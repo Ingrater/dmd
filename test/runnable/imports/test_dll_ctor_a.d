@@ -27,3 +27,8 @@ static ~this()
 {
     printf("module dtor of a\n");
 }
+
+export void funcInA()
+{
+
+}

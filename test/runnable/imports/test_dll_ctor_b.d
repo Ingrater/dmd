@@ -15,3 +15,17 @@ shared static ~this()
 {
     printf("shared module dtor of b\n");
 }
+
+static this()
+{
+    printf("module ctor of b\n");
+}
+
+static ~this()
+{
+    printf("module dtor of b\n");
+}
+
+export void funcInB()
+{
+}

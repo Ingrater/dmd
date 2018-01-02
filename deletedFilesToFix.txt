@@ -1,3 +1,4 @@
 - Check that switch error statement still compiles correctly
 - Revert commit: https://github.com/dlang/dmd/commit/3ae9f7207a0f4bb76cb8260fe82969211556dd0a
 - Add pragma(sharedlibrary) to .di file generation.
+- Locally defined symbol imported in dlldev\test2

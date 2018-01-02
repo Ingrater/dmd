@@ -15,7 +15,19 @@ shared static ~this()
     printf("shared module dtor of exe\n");
 }
 
+static this()
+{
+    printf("module ctor of exe\n");
+}
+
+static ~this()
+{
+    printf("module dtor of exe\n");
+}
+
 void main()
 {
+    funcInA();
+    funcInB();
     printf("main\n");
 }

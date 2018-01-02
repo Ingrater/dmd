@@ -33,13 +33,17 @@ $DMD -m${MODEL} -of${dmddir}/test_dll_ctor${EXE} runnable/extra-files/test_dll_c
 if [ $? -ne 0 ]; then die; fi
 
 desired="shared module ctor of b
+module ctor of b
 shared module ctor of a
 module ctor of a
 shared module ctor of exe
+module ctor of exe
 main
+module dtor of exe
 shared module dtor of exe
 module dtor of a
 shared module dtor of a
+module dtor of b
 shared module dtor of b"
 
 result=`${dmddir}/test_dll_ctor${EXE} | tr -d '\r'` # need to remove \r from '\r\n' in output to match
