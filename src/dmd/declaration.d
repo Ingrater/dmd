@@ -197,6 +197,8 @@ bool isSymbolExportDueToParent(Dsymbol symbol)
     Dsymbol realParent = symbol.parent;
     if(realParent is null)
         return false;
+
+    // Skip template instances as we want to get to the sourrounding aggregate if any.
     while (true)
     {
         TemplateInstance templateInstance = realParent.isTemplateInstance();
@@ -209,36 +211,54 @@ bool isSymbolExportDueToParent(Dsymbol symbol)
             break;
         }
     }
+
+    // If the sourrounding declaration is an aggregate see if it is export
     if (AggregateDeclaration c = realParent.isAggregateDeclaration())
     {
         return c.isExport();
     }
+
+    // Otherwise not export due to parent
     return false;
 }
 
 bool isImportedSymbolDefault(Dsymbol symbol)
 {
+    // if its not export we don't need to import it
     if (!symbol.isExport())
         return false;
-    Dsymbol curParent = symbol.parent;
+    
+    // If there is no parent the symbol is local
     if (symbol.parent is null)
         return false;
+
+    // Find the parent module
+    Dsymbol curParent = symbol.parent;
+
     Module _module = curParent.isModule();
     while (_module is null)
     {
         curParent = curParent.parent;
         if (curParent is null)
             return false;
+
+        // If the symbol belongs to a template instance use the module that caused the template instanciation
         TemplateInstance templateInstance = curParent.isTemplateInstance();
         if(templateInstance !is null && templateInstance.minst !is null)
             _module = templateInstance.minst;
         else
             _module = curParent.isModule();
     }
+    // if the module is root the symbol is definitly local
     if(_module.isRoot())
         return false;
+
+    // if the shared library identifier is equivalent to the shared library we are currently compiling
+    // the symbol is local
     if(global.sharedLibraryId == _module.sharedLibraryId)
         return false;
+
+    // In all other cases we need to import the symbol
     return true;
 }
 
