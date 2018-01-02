@@ -1717,15 +1717,16 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         // For builtin type infos forward to the actual implementation.
         if (builtinTypeInfo(tinfo))
             return type.toDsymbol(null).isImportedSymbol();
-        
-        // If its not exported we don't need to import it.
-        if(!isExport())
-            return false;
 
         // if we don't have a parent the type info has been instanciated during
         // a genObj phase. That means its definitly local.
         if (parent is null)
             return false;
+        
+        // If its not exported we don't need to import it.
+        if(!isExport())
+            return false;
+
         Module m = parent.isModule();
         assert(m); // parent should always be a module
         // if the module that instanciated the type info is a root module there is no need to import.

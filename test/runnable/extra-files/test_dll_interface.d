@@ -301,6 +301,11 @@ void TestEnumInitializer()
     TestEnumInitializer2!(EditOp[]) value;
 }
 
+void TestAddressOfMethod()
+{
+    assert(&Base.getMember is addressOfBaseGetMember());
+}
+
 void main(string[] args)
 {
     auto b = new Base();
@@ -375,4 +380,5 @@ void main(string[] args)
     TestOpEquals();
     TestTupleTypeInfo();
     TestEnumInitializer();
+    TestAddressOfMethod();
 }

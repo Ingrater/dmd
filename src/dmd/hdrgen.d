@@ -3136,8 +3136,6 @@ public:
                 else
                     buf.writestring("deprecated ");
             }
-            if (m.isExport)
-                buf.writestring("export ");
             buf.writestring("module ");
             buf.writestring(m.md.toChars());
             buf.writeByte(';');

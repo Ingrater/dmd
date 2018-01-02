@@ -1097,7 +1097,7 @@ extern (C++) class FuncDeclaration : Declaration
     {
         if (storage_class & STCexport) // if directly exported, even if private
             return true;
-        if (protection.kind <= PROTprivate) // not accessible, no need to check parents 
+        if (protection.kind <= PROTprivate) // not accessible, no need to check parents
             return false;
         return isSymbolExportDueToParent(this);
     }

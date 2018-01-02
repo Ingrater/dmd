@@ -1232,9 +1232,16 @@ elem *toElem(Expression e, IRState *irs)
             // only windows needs special handling for imported symbols
             if (global.params.useDll && (se.var.isImportedSymbol() || (se.var.isSymbolDeclaration() && se.var.isSymbolDeclaration().dsym.isImportedSymbol())))
             {
-                assert(se.op == TOKvar);
+                assert(se.op == TOKvar || se.op == TOKsymoff);
                 e = el_var(toImport(se.var));
-                e = el_una(OPind,s.Stype.Tty,e);
+                if(se.op == TOKvar)
+                {
+                    e = el_una(OPind,s.Stype.Tty,e);
+                }
+                else if(offset)
+                {
+                    e = el_bin(OPadd, e.Ety, e, el_long(TYsize_t, offset));
+                }
             }
             else if (ISREF(se.var))
             {

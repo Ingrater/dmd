@@ -59,6 +59,11 @@ public:
     }
 }
 
+export auto addressOfBaseGetMember()
+{
+    return &Base.getMember;
+}
+
 export auto makeNested(int arg)
 {
     int j = arg;
@@ -206,7 +211,7 @@ extern(C) int lotsAfAttributes() @trusted pure nothrow @nogc export
     return 1337;
 }
 
-export enum EditOp : char // export has no effect on the error
+export enum EditOp : char
 {
     none = 'n',
     substitute = 's',
