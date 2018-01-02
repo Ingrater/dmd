@@ -3300,6 +3300,13 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         {
             m.userAttribDecl.dsymbolSemantic(sc);
         }
+        if(global.params.isWindows && global.params.dll)
+        {
+            if(m.sharedLibraryId.length == 0)
+            {
+                error(m.arg, 1, 1, "All modules compiled into a dll must use pragma(sharedlibrary).");
+            }
+        }
         if (!m._scope)
         {
             sc = sc.pop();
