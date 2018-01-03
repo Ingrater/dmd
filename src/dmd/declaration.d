@@ -242,8 +242,15 @@ bool isImportedSymbolDefault(Dsymbol symbol)
 
         // If the symbol belongs to a template instance use the module that caused the template instanciation
         TemplateInstance templateInstance = curParent.isTemplateInstance();
-        if(templateInstance !is null && templateInstance.minst !is null)
-            _module = templateInstance.minst;
+
+        if(templateInstance !is null)
+        {
+            // If the template instance is going to generate code, never import on of its symbols
+            if(templateInstance.needsCodegen())
+                return false;
+            if(templateInstance.minst !is null)
+                _module = templateInstance.minst;
+        }
         else
             _module = curParent.isModule();
 
