@@ -1,5 +1,4 @@
 module test_dll_interface_a;
-pragma(sharedlibrary, "a");
 
 import core.stdc.stdio;
 import core.sys.windows.dll;

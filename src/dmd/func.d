@@ -1108,7 +1108,8 @@ extern (C++) class FuncDeclaration : Declaration
 
     override final bool isImportedSymbol()
     {
-        return isImportedSymbolDefault(this);
+        // Functions are never imported. We rely on linking against the trampolines inside the import library.
+        return false;
     }
 
     override final bool isCodeseg()

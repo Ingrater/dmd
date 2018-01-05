@@ -1,5 +1,4 @@
 module test_dll_fixup_a;
-pragma(sharedlibrary, "a");
 
 alias BOOL = int;
 alias HINSTANCE = void*;

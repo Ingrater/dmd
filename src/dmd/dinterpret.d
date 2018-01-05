@@ -2176,12 +2176,12 @@ public:
         }
         if (e.e1.op == TOKvar)
         {
-            auto varExp = cast(VarExp)e.e1;
-            if(varExp.var.isDataseg() || varExp.var.isFuncDeclaration())
+            Declaration decl = (cast(VarExp)e.e1).var;
+            if (decl.isDataseg())
             {
                 // Normally this is already done by optimize()
                 // Do it here in case optimize(WANTvalue) wasn't run before CTFE
-                result = new SymOffExp(e.loc, (cast(VarExp)e.e1).var, 0);
+                result = new SymOffExp(e.loc, decl, 0);
                 result.type = e.type;
                 return;
             }

@@ -1,5 +1,4 @@
 module test_dll_interface_a2;
-pragma(sharedlibrary, "a");
 
 import test_dll_interface_a;
 

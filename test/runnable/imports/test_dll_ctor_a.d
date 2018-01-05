@@ -1,5 +1,4 @@
 module test_dll_ctor_a;
-pragma(sharedlibrary, "a");
 
 import test_dll_ctor_b;
 

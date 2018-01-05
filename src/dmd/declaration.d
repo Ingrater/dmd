@@ -260,11 +260,6 @@ bool isImportedSymbolDefault(Dsymbol symbol)
     if(_module.isRoot())
         return false;
 
-    // if the shared library identifier is equivalent to the shared library we are currently compiling
-    // the symbol is local
-    if(global.sharedLibraryId == _module.sharedLibraryId)
-        return false;
-
     // In all other cases we need to import the symbol
     return true;
 }
@@ -1772,10 +1767,6 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         assert(m); // parent should always be a module
         // if the module that instanciated the type info is a root module there is no need to import.
         if(m.isRoot())
-            return false;
-
-        // if the type info is coming from the same shared library we don't need to import
-        if(global.sharedLibraryId == m.sharedLibraryId)
             return false;
 
         // import in all other cases

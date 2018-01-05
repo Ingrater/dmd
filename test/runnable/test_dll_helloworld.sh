@@ -20,7 +20,7 @@ die()
 }
 
 
-$DMD -m${MODEL} -of${dmddir}/test_dll_helloworld.exe runnable/extra-files/test_dll_helloworld.d -useShared >> ${output_file}
+$DMD -m${MODEL} -of${dmddir}/test_dll_helloworld.exe runnable/extra-files/test_dll_helloworld.d -useshared >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 
 desired="Hello D World!"

@@ -1225,7 +1225,7 @@ elem *toElem(Expression e, IRState *irs)
                 symbol_add(s);
             }
 
-            // only windows needs special handling for imported symbols
+            // handle imported symbols
             if (global.params.useDll && (se.var.isImportedSymbol() || (se.var.isSymbolDeclaration() && se.var.isSymbolDeclaration().dsym.isImportedSymbol())))
             {
                 assert(se.op == TOKvar || se.op == TOKsymoff);
@@ -1234,7 +1234,7 @@ elem *toElem(Expression e, IRState *irs)
                 {
                     e = el_una(OPind,s.Stype.Tty,e);
                 }
-                else if(offset)
+                else if(offset) // se.op = TOKsymoff
                 {
                     e = el_bin(OPadd, e.Ety, e, el_long(TYsize_t, offset));
                 }

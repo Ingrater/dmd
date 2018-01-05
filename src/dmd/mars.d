@@ -88,11 +88,13 @@ private  void usage()
     {
         const(char)* m32mscoff = "\n  -m32mscoff       generate 32 bit code and write MS-COFF object files";
         const(char)* mscrtlib  = "\n  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain";
+        const(char*) useshared = "\n  -useshared       enable the use of D shared libraries in the generated code";
     }
     else
     {
         const(char)* m32mscoff = "";
         const(char)* mscrtlib  = "";
+        const(char)* useshared = "";
     }
     logo();
     printf("
@@ -168,8 +170,8 @@ Where:
   -profile         profile runtime performance of generated code
   -profile=gc      profile runtime allocations
   -release         compile release version
-  -shared          generate shared library (DLL)
-  -useShared       enable the use of D shared libraries in the generated executable
+  -shared          generate shared library (DLL)" ~
+  "%s" /* placeholder for useshared */ ~ "
   -transition=<id> help with language change identified by 'id'
   -transition=?    list all language changes
   -unittest        compile in unit tests
@@ -186,7 +188,7 @@ Where:
   -wi              warnings as messages (compilation will continue)
   -X               generate JSON file
   -Xf=<filename>   write JSON file to filename
-", FileName.canonicalName(global.inifilename), fpic, m32mscoff, mscrtlib);
+", FileName.canonicalName(global.inifilename), fpic, m32mscoff, mscrtlib, useshared);
 }
 
 /// DMD-generated module `__entrypoint` where the C main resides
@@ -500,10 +502,6 @@ Language changes listed by -transition=id:
     }
     static if (TARGET_WINDOS)
     {
-        // -shared implies -useShared
-        if (global.params.dll)
-            global.params.useDll = true;
-
         // full dll support is currently only implemented when targeting the microsoft linker
         if (global.params.useDll && !global.params.mscoff)
             global.params.useDll = false;
@@ -1657,11 +1655,11 @@ private bool parseCommandLine(const ref Strings arguments, const size_t argc, re
             }
             else if (arg == "-shared")
                 params.dll = true;
-            else if (arg == "-useShared")
+            else if (arg == "-useshared")
             {
                 static if(TARGET_WINDOS)
                 {
-                    // the useShared flag is only supported on windows
+                    // the useshared flag is only supported on windows
                     global.params.useDll = true;
                 }
                 else
