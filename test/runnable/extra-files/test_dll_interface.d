@@ -387,4 +387,5 @@ void main(string[] args)
     TestEnumInitializer();
     TestAddressOfMethod();
     TestDuplicateSymbol();
+    TestStaticLib();
 }

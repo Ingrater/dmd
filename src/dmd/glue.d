@@ -1333,7 +1333,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
     // Restore symbol table
     cstate.CSpsymtab = symtabsave;
 
-    if (global.params.dll && fd.isExport())
+    if (fd.isExport())
         objmod.export_symbol(s, cast(uint)Para.offset);
 
     for (size_t i = 0; i < irs.deferToObj.dim; i++)

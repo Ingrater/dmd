@@ -1,5 +1,7 @@
 module test_dll_interface_a;
 
+import test_dll_interface_d;
+
 import core.stdc.stdio;
 import core.sys.windows.dll;
 
@@ -66,7 +68,7 @@ export auto addressOfBaseGetMember()
 export auto makeNested(int arg)
 {
     int j = arg;
-    export struct Nested
+    struct Nested
     {
         int var = 1;
         int get()
@@ -220,5 +222,13 @@ export enum EditOp : char
 
 export int duplicatedFunc(T)()
 {
-  return T.sizeof;
+    return T.sizeof;
+}
+
+export __gshared int* g_staticLibVarAddr = &g_staticLibVar;
+export void TestStaticLib()
+{
+    assert(&g_staticLibVar is getStaticLibVarAddr());
+    assert(g_staticLibVarAddr is getStaticLibVarAddr());
+    assert(staticLibFunc() == 5);
 }
