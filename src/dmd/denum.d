@@ -318,7 +318,7 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
     {
         if (isexport) // if directly exported, even if private
             return true;
-        if (protection.kind <= PROTprivate) // not accessible, no need to check parent
+        if (protection.kind <= Prot.Kind.private_) // not accessible, no need to check parent
             return false;
         // check if any of the parents is a class/struct and if they are exported
         return isSymbolExportDueToParent(this);

@@ -1997,7 +1997,7 @@ public:
             buf.writestring("@nogc ");
         if (d.storage_class & STC.disable)
             buf.writestring("@disable ");
-        if (d.storage_class & STCexport)
+        if (d.storage_class & STC.export_)
             buf.writestring("export ");
 
         buf.writestring("~this()");
@@ -3250,7 +3250,7 @@ extern (C++) const(char)* stcToChars(ref StorageClass stc)
         SCstring(STC.disable, TOKat, "@disable"),
         SCstring(STC.future, TOKat, "@__future"),
         SCstring(STC.local, TOKat, "__local"),
-        SCstring(STCexport, TOKexport),
+        SCstring(STC.export_, TOKexport),
         SCstring(0, TOKreserved)
     ];
     for (int i = 0; table[i].stc; i++)

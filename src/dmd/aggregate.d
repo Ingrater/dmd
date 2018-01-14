@@ -667,7 +667,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
     override final bool isExport()
     {
-        if (storage_class & STCexport) // if directly exported, even if private
+        if (storage_class & STC.export_) // if directly exported, even if private
             return true;
         if (protection.kind <= Prot.Kind.private_) // not accessible, no need to check parent
             return false;

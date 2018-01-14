@@ -863,7 +863,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                             auto retAggregateDecl = retTypeSym.isAggregateDeclaration();
                             if(retAggregateDecl !is null)
                             {
-                                retAggregateDecl.storage_class |= STCexport;
+                                retAggregateDecl.storage_class |= STC.export_;
                             }
                             else
                             {
