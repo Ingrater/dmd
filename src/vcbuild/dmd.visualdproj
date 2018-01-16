@@ -529,6 +529,7 @@
    <File path="..\dmd\identifier.d" />
    <File path="..\dmd\impcnvtab.d" />
    <File path="..\dmd\imphint.d" />
+   <File path="..\dmd\importlist.d" />
    <File path="..\dmd\init.d" />
    <File path="..\dmd\initsem.d" />
    <File path="..\dmd\inline.d" />

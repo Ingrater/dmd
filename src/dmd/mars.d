@@ -61,6 +61,7 @@ import dmd.semantic3;
 import dmd.target;
 import dmd.tokens;
 import dmd.utils;
+import dmd.importlist;
 
 /**
  * Print DMD's logo on stdout
@@ -800,8 +801,12 @@ private int tryMain(size_t argc, const(char)** argv)
     {
         m.importedFrom = Module.rootModule;
         m.isImportList = true;
-        m.isDllImported = true;
         m.deleteObjFile();
+
+        m.isDllImported = true;
+        if (global.params.verbose)
+            fprintf(global.stdmsg, "module imported from dll %s\n", m.toChars());
+
         static if (ASYNCREAD)
         {
             if (aw.read(i + files.dim))
@@ -812,10 +817,6 @@ private int tryMain(size_t argc, const(char)** argv)
         }
         m.parse();
     }
-    Modules allModules;
-    allModules.reserve(modules.dim + dllImportModules.dim);
-    allModules.append(&modules);
-    allModules.append(&dllImportModules);
     static if (ASYNCREAD)
     {
         AsyncRead.dispose(aw);
@@ -846,7 +847,7 @@ private int tryMain(size_t argc, const(char)** argv)
         fatal();
 
     // load all unconditional imports for better symbol resolving
-    foreach (m; allModules)
+    foreach (m; modules)
     {
         if (global.params.verbose)
             fprintf(global.stdmsg, "importall %s\n", m.toChars());
@@ -858,7 +859,7 @@ private int tryMain(size_t argc, const(char)** argv)
     backend_init();
 
     // Do semantic analysis
-    foreach (m; allModules)
+    foreach (m; modules)
     {
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic  %s\n", m.toChars());
@@ -879,7 +880,7 @@ private int tryMain(size_t argc, const(char)** argv)
     }
 
     // Do pass 2 semantic analysis
-    foreach (m; allModules)
+    foreach (m; modules)
     {
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic2 %s\n", m.toChars());
@@ -899,6 +900,13 @@ private int tryMain(size_t argc, const(char)** argv)
     Module.runDeferredSemantic3();
     if (global.errors)
         fatal();
+
+    // Analyze the import list modules
+    // Do this after the full semantic analysis so all required modules are already loaded.
+    foreach(m; dllImportModules)
+    {
+        m.importModuleAnalysis();
+    }
 
     // Scan for functions to inline
     if (global.params.useInline)

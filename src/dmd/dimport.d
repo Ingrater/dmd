@@ -120,6 +120,17 @@ extern (C++) final class Import : Dsymbol
         return si;
     }
 
+    // Looks for the imported module if its already loaded.
+    // Won't load the module.
+    void lookupModule()
+    {
+        DsymbolTable dst = Package.resolve(packages, null, &pkg);
+        Dsymbol s = dst.lookup(id);
+
+        if (s !is null && s.isModule())
+            mod = cast(Module)s;
+    }
+
     void load(Scope* sc)
     {
         //printf("Import::load('%s') %p\n", toPrettyChars(), this);
