@@ -284,10 +284,6 @@ bool isSymbolExportDueToParent(Dsymbol symbol)
 
 bool isImportedSymbolDefault(Dsymbol symbol)
 {
-    // if its not export we don't need to import it
-    if (!symbol.isExport())
-        return false;
-
     // If there is no parent the symbol is local
     if (symbol.parent is null)
         return false;
@@ -1307,7 +1303,7 @@ extern (C++) class VarDeclaration : Declaration
         // if the symbol is thread local we can't export it either, as cross dll thread local doesn't work.
         if (isThreadlocal())
             return false;
-        if (storage_class & STC.export_) // if directly exported, even if private
+        if (storage_class & STC.export_ || global.params.exportall) // if directly exported, even if private
             return true;
         if (protection.kind <= Prot.Kind.private_) // not accessible, no need to check parents
             return false;
@@ -1317,6 +1313,12 @@ extern (C++) class VarDeclaration : Declaration
 
     override bool isImportedSymbol()
     {
+        // if the symbol does not go into the data segment we can't import it
+        if (!isDataseg())
+            return false;
+        // if the symbol is thread local we can't import it either, as cross dll thread local doesn't work.
+        if (isThreadlocal())
+            return false;
         return isImportedSymbolDefault(this);
     }
 
@@ -1806,10 +1808,6 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         // if we don't have a parent the type info has been instanciated during
         // a genObj phase. That means its definitly local.
         if (parent is null)
-            return false;
-
-        // If its not exported we don't need to import it.
-        if(!isExport())
             return false;
 
         Module m = parent.isModule();

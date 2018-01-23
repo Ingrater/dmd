@@ -1455,6 +1455,8 @@ private void addDefaultVersionIdentifiers()
         VersionCondition.addPredefinedGlobalIdent("D_NoBoundsChecks");
     if (global.params.betterC)
         VersionCondition.addPredefinedGlobalIdent("D_BetterC");
+    if (global.params.dll)
+        VersionCondition.addPredefinedGlobalIdent("D_Shared");
 
     VersionCondition.addPredefinedGlobalIdent("D_HardFloat");
 
@@ -1650,8 +1652,17 @@ private bool parseCommandLine(const ref Strings arguments, const size_t argc, re
                 else if (p[4])
                     goto Lerror;
             }
-            else if (arg == "-shared")
+            else if (startsWith(p + 1, "shared"))
+            {
+                if(arg == "-shared=exportall")
+                {
+                    params.exportall = true;
+                }
+                else if(arg[7] != '\0')
+                    goto Lerror;
+
                 params.dll = true;
+            }
             else if(startsWith(p + 1, "import"))
             {
                 static if(TARGET_WINDOS)

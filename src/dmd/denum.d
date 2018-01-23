@@ -316,7 +316,7 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
 
     override bool isExport()
     {
-        if (isexport) // if directly exported, even if private
+        if (isexport || global.params.exportall) // if directly exported, even if private
             return true;
         if (protection.kind <= Prot.Kind.private_) // not accessible, no need to check parent
             return false;

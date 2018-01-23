@@ -1089,17 +1089,25 @@ extern (C++) class FuncDeclaration : Declaration
         return ident == Id.rt_init && linkage == LINKc && !isMember() && !isNested();
     }
 
-    override final bool isExport()
+    final bool isExportImpl(bool exportall)
     {
-        if (storage_class & STC.export_) // if directly exported, even if private
+        if (storage_class & STC.export_ || exportall) // if directly exported, even if private
             return true;
         if (protection.kind <= Prot.Kind.private_) // not accessible, no need to check parents
             return false;
         return isSymbolExportDueToParent(this);
     }
 
+    override final bool isExport()
+    {
+        return isExportImpl(global.params.exportall);
+    }
+
     override final bool isImportedSymbol()
     {
+        // don't import function declarations which are not explicitly export
+        if(!fbody && !isExport())
+            return false;
         return isImportedSymbolDefault(this);
     }
 

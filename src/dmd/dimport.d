@@ -127,8 +127,13 @@ extern (C++) final class Import : Dsymbol
         DsymbolTable dst = Package.resolve(packages, null, &pkg);
         Dsymbol s = dst.lookup(id);
 
-        if (s !is null && s.isModule())
-            mod = cast(Module)s;
+        if (s !is null) 
+        { 
+            if(s.isModule())
+                mod = cast(Module)s;
+            else if(Package p = s.isPackage())
+                mod = p.isPackageMod();
+        }
     }
 
     void load(Scope* sc)
