@@ -193,6 +193,10 @@ struct Usage
         Option("ignore",
             "ignore unsupported pragmas"
         ),
+        Option("import=<filename>",
+            "dll import all modules in the import list 'filename'",
+            TargetOS.windows
+        ),
         Option("inline",
             "do function inlining"
         ),
@@ -266,6 +270,10 @@ struct Usage
         ),
         Option("shared",
             "generate shared library (DLL)"
+        ),
+        Option("shared=exportall",
+            "generate shared library (DLL) and export all relevant symbols",
+            TargetOS.windows
         ),
         Option("transition=<id>",
             "help with language change identified by 'id'"

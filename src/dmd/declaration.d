@@ -246,7 +246,7 @@ enum STC : long
     export_             = (1L << 52),   // make avaible accross shared library boundaries
 
     TYPECTOR = (STC.const_ | STC.immutable_ | STC.shared_ | STC.wild),
-    FUNCATTR = (STC.ref_ | STC.nothrow_ | STC.nogc | STC.pure_ | STC.property | STC.safe | STC.trusted | STC.system | STC.export_),
+    FUNCATTR = (STC.ref_ | STC.nothrow_ | STC.nogc | STC.pure_ | STC.property | STC.safe | STC.trusted | STC.system),
 }
 
 /***********************************************

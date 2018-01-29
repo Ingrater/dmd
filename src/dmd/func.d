@@ -1106,7 +1106,7 @@ extern (C++) class FuncDeclaration : Declaration
     override final bool isImportedSymbol()
     {
         // don't import function declarations which are not explicitly export
-        if(!fbody && !isExport())
+        if(!fbody && !isExportImpl(false))
             return false;
         return isImportedSymbolDefault(this);
     }

@@ -20,15 +20,16 @@ die()
 }
 
 
-$DMD -m${MODEL} -of${dmddir}/test_dll_ctor_b.dll runnable/imports/test_dll_ctor_b.d -shared -useshared \
+$DMD -m${MODEL} -of${dmddir}/test_dll_ctor_b.dll runnable/imports/test_dll_ctor_b.d -shared \
     -L/IMPLIB:${dmddir}/test_dll_ctor_b.lib >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 
-$DMD -m${MODEL} -of${dmddir}/test_dll_ctor_a.dll runnable/imports/test_dll_ctor_a.d -shared -useshared \
+$DMD -m${MODEL} -of${dmddir}/test_dll_ctor_a.dll runnable/imports/test_dll_ctor_a.d -shared -import=test_dll_ctor_b \
     -Irunnable/imports ${dmddir}/test_dll_ctor_b.lib -L/IMPLIB:${dmddir}/test_dll_ctor_a.lib  >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 
-$DMD -m${MODEL} -of${dmddir}/test_dll_ctor${EXE} runnable/extra-files/test_dll_ctor.d -useshared \
+$DMD -m${MODEL} -of${dmddir}/test_dll_ctor${EXE} runnable/extra-files/test_dll_ctor.d \
+    -import=test_dll_ctor_b -import=test_dll_ctor_a \
     -Irunnable/imports ${dmddir}/test_dll_ctor_b.lib ${dmddir}/test_dll_ctor_a.lib >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 

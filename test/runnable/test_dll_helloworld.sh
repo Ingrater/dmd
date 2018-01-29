@@ -20,7 +20,7 @@ die()
 }
 
 
-$DMD -m${MODEL} -of${dmddir}/test_dll_helloworld.exe runnable/extra-files/test_dll_helloworld.d -useshared >> ${output_file}
+$DMD -m${MODEL} -of${dmddir}/test_dll_helloworld.exe runnable/extra-files/test_dll_helloworld.d -defaultlib=phobos${MODEL}s >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 
 desired="Hello D World!"

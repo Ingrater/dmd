@@ -19,12 +19,12 @@ die()
     exit 1
 }
 
-$DMD -m${MODEL} -of${dmddir}/test_dll_fixup_a.dll runnable/imports/test_dll_fixup_a.d -shared -useshared -betterC -defaultlib="msvcrt" \
+$DMD -m${MODEL} -of${dmddir}/test_dll_fixup_a.dll runnable/imports/test_dll_fixup_a.d -shared -betterC -defaultlib="msvcrt" \
     -L/IMPLIB:${dmddir}/test_dll_fixup_a.lib >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 
 
-$DMD -m${MODEL} -of${dmddir}/test_dll_fixup${EXE} runnable/extra-files/test_dll_fixup.d -useshared -betterC -defaultlib="msvcrt" \
+$DMD -m${MODEL} -of${dmddir}/test_dll_fixup${EXE} runnable/extra-files/test_dll_fixup.d -import=test_dll_fixup_a -betterC -defaultlib="msvcrt" \
     -Irunnable/imports ${dmddir}/test_dll_fixup_a.lib >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 

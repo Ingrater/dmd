@@ -46,9 +46,7 @@ __gshared int* g_parr = g_arr.ptr + 2;
 __gshared void* g_pfunc = cast(void*)&get_g_var;
 __gshared int*[3] g_arrp = [g_arr.ptr, g_arr.ptr + 1, g_arr.ptr + 2];
 
-private alias extern(C) int function(char[][] args) MainFunc;
-
-extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
+extern (C) int main(int argc, char **argv)
 {
     fixupDataSymbols();
     printf("g_var = %d == 4\n", g_var);
@@ -66,8 +64,8 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         return 1;
     // Note: as &get_g_var will take the address of the trampoline instead of the final function 
     // the function pointers won't be the same even though the effectivly call the same function.
-    printf("&get_g_var = %p == %p != %p\n", g_pfunc, cast(void*)&get_g_var, get_g_var_addr());
-    if(!(g_pfunc == cast(void*)&get_g_var && cast(void*)&get_g_var != get_g_var_addr()))
+    printf("&get_g_var = %p == %p == %p\n", g_pfunc, cast(void*)&get_g_var, get_g_var_addr());
+    if(!(g_pfunc == cast(void*)&get_g_var && cast(void*)&get_g_var == get_g_var_addr()))
         return 1;
     printf("g_arr[]: [%p, %p, %p] == [%p, %p, %p]\n", g_arrp[0], g_arrp[1], g_arrp[2], g_arr_addr(0), g_arr_addr(1), g_arr_addr(2));
     if(!(g_arrp[0] == g_arr_addr(0)))
@@ -78,8 +76,4 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         return 1;
 
     return 0;
-}
-
-void main(string[] args)
-{
 }

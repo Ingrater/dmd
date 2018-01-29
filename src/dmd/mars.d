@@ -1300,6 +1300,12 @@ private void setDefaultLibrary()
                 global.params.defaultlibname = "phobos32mscoff";
             else
                 global.params.defaultlibname = "phobos";
+
+            if(global.params.importsDll || global.params.dll)
+            {
+                auto libname = global.params.defaultlibname;
+                global.params.defaultlibname = (libname[0..strlen(libname)] ~ "s\0").ptr;
+            }
         }
         else static if (TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
         {
@@ -1329,7 +1335,8 @@ private void addDefaultDllImports(ref Strings dllImports)
             ? global.params.debuglibname
             : global.params.defaultlibname;
 
-        if(stricmp(libname, "phobos64s") == 0 || stricmp(libname, "phobos64s.lib") == 0)
+        if(stricmp(libname, "phobos64s") == 0 || stricmp(libname, "phobos64s.lib") == 0 ||
+           stricmp(libname, "phobos32mscoffs") == 0 || stricmp(libname, "phobos32mscoffs.lib") == 0)
         {
             dllImports.push("druntime.d");
             dllImports.push("phobos.d");
@@ -1658,7 +1665,7 @@ private bool parseCommandLine(const ref Strings arguments, const size_t argc, re
                 {
                     params.exportall = true;
                 }
-                else if(arg[7] != '\0')
+                else if(arg.length != 7)
                     goto Lerror;
 
                 params.dll = true;
