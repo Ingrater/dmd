@@ -37,8 +37,14 @@ if [ $? -ne 0 ]; then die; fi
 
 $DMD -m${MODEL} -of${dmddir}/test_dll_interface${EXE} runnable/extra-files/test_dll_interface.d \
     -import=test_dll_interface_a -import=test_dll_interface_b \
-    -Irunnable/imports ${dmddir}/test_dll_interface_a.lib ${dmddir}/test_dll_interface_b.lib >> ${output_file}
+    -Irunnable/imports ${dmddir}/test_dll_interface_a.lib ${dmddir}/test_dll_interface_b.lib >> ${output_file}	
 if [ $? -ne 0 ]; then die; fi
+
+cat ${output_file} | grep "warning LNK" -q
+if [ $? -ne 1 ]; then
+	echo "Test failed due to linker warning!"
+	die
+fi
 
 ${dmddir}/test_dll_interface${EXE} >> ${output_file}
 if [ $? -ne 0 ]; then die; fi

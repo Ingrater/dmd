@@ -33,6 +33,12 @@ $DMD -m${MODEL} -of${dmddir}/test_dll_ctor${EXE} runnable/extra-files/test_dll_c
     -Irunnable/imports ${dmddir}/test_dll_ctor_b.lib ${dmddir}/test_dll_ctor_a.lib >> ${output_file}
 if [ $? -ne 0 ]; then die; fi
 
+cat ${output_file} | grep "warning LNK" -q
+if [ $? -ne 1 ]; then
+	echo "Test failed due to linker warning!"
+	die
+fi
+
 desired="shared module ctor of b
 module ctor of b
 shared module ctor of a

@@ -912,7 +912,8 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
                 // For dlls or executables which use/are dlls we need the eh-sections
                 objmod.ehsections();
             }
-            objmod.includelib(libname);
+            if(strlen(libname) > 0)
+                objmod.includelib(libname);
             s.Sclass = SCglobal;
         }
         else if (fd.isRtInit())
@@ -965,7 +966,8 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
                 // For dlls or executables which use/are dlls we need the eh-sections
                 objmod.ehsections();
             }
-            objmod.includelib(libname);
+            if(strlen(libname) > 0)
+                objmod.includelib(libname);
             s.Sclass = SCglobal;
         }
 
@@ -988,7 +990,8 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
                 // For dlls or executables which use/are dlls we need the eh-sections
                 objmod.ehsections();
             }
-            objmod.includelib(libname);
+            if(strlen(libname) > 0)
+                objmod.includelib(libname);
             s.Sclass = SCglobal;
         }
     }

@@ -61,10 +61,20 @@ extern (C++) void genTypeInfo(Type torig, Scope* sc)
                 // Find module that will go all the way to an object file
                 Module m = sc._module.importedFrom;
                 m.members.push(t.vtinfo);
+
+                // Set the parent pointer of the typeinfo declaration 
+                // so that we can later find out if the type info is going 
+                // to be emmited into an object file.
+                t.vtinfo.parent = m;
             }
             else // if in obj generation pass
             {
                 toObjFile(t.vtinfo, global.params.multiobj);
+
+                // Set the parent pointer of the typeinfo declaration 
+                // so that we can later find out if the type info is going 
+                // to be emmited into an object file.
+                t.vtinfo.parent = Module.rootModule;
             }
         }
     }
