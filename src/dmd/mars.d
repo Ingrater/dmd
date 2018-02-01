@@ -803,10 +803,6 @@ private int tryMain(size_t argc, const(char)** argv)
         m.isImportList = true;
         m.deleteObjFile();
 
-        m.isDllImported = true;
-        if (global.params.verbose)
-            fprintf(global.stdmsg, "module imported from dll %s\n", m.toChars());
-
         static if (ASYNCREAD)
         {
             if (aw.read(i + files.dim))
@@ -905,6 +901,17 @@ private int tryMain(size_t argc, const(char)** argv)
     // Do this after the full semantic analysis so all required modules are already loaded.
     foreach(m; dllImportModules)
     {
+        if(m.isRoot())
+        {
+            error(m.arg, 1, 0, "The module %s is part of the current compilation and thus can't be dll imported at the same time.", m.arg);
+        }
+        else
+        {
+            m.isDllImported = true;
+            if (global.params.verbose)
+                fprintf(global.stdmsg, "module imported from dll %s\n", m.toChars());
+        }
+
         m.importModuleAnalysis();
     }
 

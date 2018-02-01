@@ -7,6 +7,7 @@ import dmd.dmodule;
 import dmd.attrib;
 import dmd.arraytypes;
 import dmd.globals;
+import dmd.errors;
 
 import core.stdc.stdio;
 
@@ -54,9 +55,16 @@ private extern(C++) final class ImportModuleVisitor : Visitor
         {
             if(curProtection == Prot.Kind.public_)
             {
-                imp.mod.isDllImported = true;
-                if (global.params.verbose)
-                    fprintf(global.stdmsg, "module imported from dll %s\n", imp.mod.toChars());
+                if(imp.mod.isRoot())
+                {
+                    error(imp.loc, "The module %s is part of the current compilation and thus can't be dll imported at the same time.", imp.mod.arg);
+                }
+                else
+                {
+                    imp.mod.isDllImported = true;
+                    if (global.params.verbose)
+                        fprintf(global.stdmsg, "module imported from dll %s\n", imp.mod.toChars());
+                }
             }
         }
     }

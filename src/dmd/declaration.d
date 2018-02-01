@@ -1798,12 +1798,13 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         {
             Module m = parent.isModule();
             assert(m); // parent should always be a module
-            // if the module that instanciated the type info is a root module there is no need to import.
             if(m.isRoot())
-                return false;
-
-            // import in all other cases if module is dllimport
-            return m.isDllImported;
+            {
+                // if the parent is a root module and the type info is non-speculative
+                // it will be emitted into the object file and thus is not imported.
+                if(!isSpeculativeType(tinfo))
+                    return false;
+            }
         }
 
         // special handling for classes because they are considered builtin for whatever reason
@@ -1817,7 +1818,7 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         if (builtinTypeInfo(tinfo))
             return type.toDsymbol(null).isImportedSymbol();
 
-        return false;
+        return true;
     }
 
     override final inout(TypeInfoDeclaration) isTypeInfoDeclaration() inout
